@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2014-04-05 22:03:20 +0100 (Sat, 05 Apr 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -25,6 +25,8 @@ Optional Checks:
 - H2O version
 
 Tested on 0xdata H2O 2.2.1.3, 2.4.3.4, 2.6.1.5
+
+TODO: H2O 3.x API has changed, updates required
 ";
 
 $VERSION = "0.1";

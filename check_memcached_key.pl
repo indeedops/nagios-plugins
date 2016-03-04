@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2011-05-28 22:23:05 +0000 (Sat, 28 May 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -18,7 +18,10 @@ Checks:
 3. checks key's returned value against warning/critical range thresholds (optional)
    raises warning/critical if the value is outside thresholds or not a floating point number
 4. records the read timing to a given precision for reporting and graphing
-5. outputs the read timing and optionally the key's value for graphing purposes";
+5. outputs the read timing and optionally the key's value for graphing purposes
+
+Tested on Memcached from around 2010/2011, plus 1.4.4, 1.4.25
+";
 
 $VERSION = "0.10";
 
@@ -77,7 +80,7 @@ $key  = validate_nosql_key($key, "$server_name");
 if(defined($expected)){
     $expected = validate_regex($expected);
 }
-vlog_options "graph", "true" if $graph;
+vlog_option "graph", "true" if $graph;
 if(defined($units)){
     $units = validate_units($units);
 }

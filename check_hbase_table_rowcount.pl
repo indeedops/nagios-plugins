@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-13 02:30:13 +0100 (Sun, 13 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -19,7 +19,7 @@ Suggest this be run as a passive service check and the result fed back in to NSC
 
 Tested on CDH 4.3.0, 4.5.0";
 
-$VERSION = "0.1";
+$VERSION = "0.2.1";
 
 use strict;
 use warnings;
@@ -49,8 +49,8 @@ my $rowcount;
 
 get_options();
 
-$table       = validate_database_tablename($table, "allow_qualified");
-$hbase_bin = validate_file($hbase_bin, undef, "hbase path");
+$table     = validate_database_tablename($table, "HBase", "allow_qualified");
+$hbase_bin = validate_file($hbase_bin, "hbase path");
 which($hbase_bin, 1);
 $hbase_bin =~ /(.*\/?)hbase$/ or usage "invalid hbase-bin supplied, must be the path to the hbase command";
 validate_thresholds();

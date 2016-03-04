@@ -4,12 +4,12 @@
 #  Author: Hari Sekhon
 #  Date: 2013-11-17 21:08:10 +0000 (Sun, 17 Nov 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
-our $developed_on = "Developed on Redis 2.4.10";
+our $tested_on = "Tested on Redis 2.4.10, 2.8.19, 3.0.7";
 
 our $DESCRIPTION = "Nagios Plugin to check a Redis server's stats
 
@@ -17,9 +17,9 @@ our $DESCRIPTION = "Nagios Plugin to check a Redis server's stats
 2. If specifying a single stat, checks the result matches expected value or warning/critical thresholds if specified
 3. Outputs perfdata for all float value stats for graphing
 
-$developed_on";
+$tested_on";
 
-$VERSION = "0.7";
+$VERSION = "0.7.1";
 
 use strict;
 use warnings;
@@ -61,7 +61,7 @@ if($progname eq "check_redis_version.pl"){
                  . "2. link to master is up\n"
                  . "3. replication last I/O is within warning/critical thresholds\n"
                  . "4. checks if master sync is in progress (raises warning)\n"
-                 . "\n" . $developed_on . "\n";
+                 . "\n" . $tested_on . "\n";
     $statlist = "role,master_host,master_port,master_link_status,master_last_io_seconds_ago,master_sync_in_progress";
     delete $options{"s|stats=s"};
     delete $options{"e|expected=s"};
@@ -85,7 +85,7 @@ if(defined($statlist)){
         foreach my $stat (@stats){
             $stat =~ /^([\w_-]+)$/;
             $stat = $1;
-            vlog_options "stat", $stat;
+            vlog_option "stat", $stat;
         }
         @stats or usage "no valid stats specified";
     }
@@ -133,6 +133,23 @@ $msg = "";
 my $msgperf = "";
 my $stat_value;
 
+sub process_stat($){
+    defined($_[0]) or code_error "no stat passed to process_stat()";
+    my $stat = $_[0];
+    unless(defined($$info_hash{$stat})){
+        quit "UNKNOWN", "no stat found: $stat";
+    }
+    $msg .= "$_=$$info_hash{$stat} ";
+    vlog3 "$_=$$info_hash{$stat}";
+    return if $stat =~ /port/;
+    if(isFloat($$info_hash{$stat})){
+        $msgperf .= "$stat=$$info_hash{$stat} ";
+    } elsif(@stats and $$info_hash{$stat} =~ /^(\d+(?:\.\d+)?)(B|(?:K|M|G|T|P)(?:B)?)$/i){
+        $$info_hash{$stat} = expand_units($1, $2);
+        $msgperf .= "$stat=$$info_hash{$stat} ";
+    }
+}
+
 if(@stats){
     if($check_replication_slave){
         unless(defined($$info_hash{"role"}) and $$info_hash{"role"} eq "slave"){
@@ -140,31 +157,20 @@ if(@stats){
         }
     }
     foreach(@stats){
-        unless(defined($$info_hash{$_})){
-            quit "UNKNOWN", "no stat found: $_";
-        }
-        $msg .= "$_=$$info_hash{$_} ";
-        vlog3 "$_=$$info_hash{$_}";
-        if(isFloat($$info_hash{$_})){
-            next if $_ =~ /port/;
-            $msgperf .= "$_=$$info_hash{$_} ";
-        }
+        process_stat($_);
     }
 } else {
     foreach(sort keys %$info_hash){
-        $msg .= "$_=$$info_hash{$_} ";
-        vlog3 "$_=$$info_hash{$_}";
-        if(isFloat($$info_hash{$_})){
-            next if $_ =~ /port/;
-            $msgperf .= "$_=$$info_hash{$_} ";
-        }
+        process_stat($_);
     }
 }
 hr if $verbose > 2;
 
 $msg =~ s/ $//;
 $msgperf =~ s/ $//;
-$msgperf .= msg_perf_thresholds(1) if(scalar @stats == 1 and isFloat($$info_hash{$stats[0]}));
+if(scalar @stats == 1 and isFloat($$info_hash{$stats[0]})){
+    $msgperf .= msg_perf_thresholds(1);
+}
 
 if(scalar @stats == 1){
     if(defined($expected)){

@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-11-17 21:08:10 +0000 (Sun, 17 Nov 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -16,9 +16,9 @@ $DESCRIPTION = "Nagios Plugin to check a Redis server's client list
 3. Checks all connected client host addresses match expected address regex (optional)
 4. Checks the total number of connected clients against warning/critical thresholds (optional). There may be multiple client connections from each host and each one consumes a file descriptor on the server so it is the number of client connections rather than the number of hosts that are checked against thresholds
 
-Developed on Redis 2.4.10";
+Tested on Redis 2.4.10, 2.8.19, 3.0.7";
 
-$VERSION = "0.5";
+$VERSION = "0.5.1";
 
 use strict;
 use warnings;
@@ -89,7 +89,7 @@ my $client;
 my $total_clients = 0;
 foreach(@clients){
     vlog3 $_;
-    /^addr=(($ip_regex):\d+)\s+/ or quit "UNKNOWN", "failed to parse client list. $nagios_plugins_support_msg";
+    /^(?:id=\d+\s+)?addr=(($ip_regex):\d+)\s+/ or quit "UNKNOWN", "failed to parse client list. $nagios_plugins_support_msg";
     $client = $1;
     $host   = $2;
     $total_clients++;

@@ -5,7 +5,7 @@
 #  Date: 2013-11-17 00:22:17 +0000 (Sun, 17 Nov 2013)
 #  Continuation an idea from Q3/Q4 2012, inspired by other similar NoSQL plugins developed a few years earlier
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -21,7 +21,7 @@ Checks:
 4. records the read timing to a given precision for reporting and graphing
 5. outputs the read timing and optionally the key's value for graphing purposes
 
-Developed on Redis 2.4.10";
+Tested on Redis 2.4.10, 2.8.19, 3.0.7";
 
 $VERSION = "0.5";
 
@@ -65,7 +65,7 @@ if(defined($database)){
 if(defined($expected)){
     $expected = validate_regex($expected);
 }
-vlog_options "graph", "true" if $graph;
+vlog_option "graph", "true" if $graph;
 if(defined($units)){
     $units = validate_units($units);
 }

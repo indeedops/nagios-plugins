@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2011-06-02 11:26:16 +0100 (Thu, 02 Jun 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -13,10 +13,12 @@ $DESCRIPTION = "Nagios Plugin to check MySQL config file matches running MySQL s
 
 Primarily written to check that DBAs hadn't changed any running DB from Puppet deployed config without backporting their changes. Can also be used for baseline configuration compliance checking.
 
-A friend and ex-colleague of mine Tom Liakos @ Specificmedia pointed out a long time after I wrote this that Percona independently developed a similar tool called pt-config-diff (part of the Percona toolkit) around the same time.
+A friend and ex-colleague of mine Tom Liakos @ Specific Media pointed out a long time after I wrote this that Percona independently developed a similar tool called pt-config-diff (part of the Percona toolkit) around the same time.
+
+Tested on MySQL 5.0, 5.1, 5.5, 5.7
 ";
 
-$VERSION = "1.1.0";
+$VERSION = "1.2.4";
 
 use strict;
 use warnings;
@@ -29,20 +31,25 @@ use DBI;
 
 set_port_default(3306);
 
-my $default_config_file     = "/etc/my.cnf";
+my @default_config_locations = qw(
+    /etc/mysql/my.cnf
+    /etc/my.cnf
+    /usr/local/mysqld/my.cnf
+    /usr/local/mysql/my.cnf
+);
 my $default_mysql_instance  = "mysqld";
 my @default_mysql_sockets = ( "/var/lib/mysql/mysql.sock", "/tmp/mysql.sock");
 my $mysql_socket;
 
-my $config_file     = $default_config_file;
+my $config_file;
 my $mysql_instance  = $default_mysql_instance;
-my $password        = "";
 my %mysql_config;
 my $ensure_skip_name_resolve = 0;
 my $warn_on_missing_variables = 0;
 
 # using regex here now
 my @config_file_only = (
+    "bind-address",
     "binlog-(?:do|ignore)-db",
     "default-storage-engine",
     "federated",
@@ -56,6 +63,9 @@ my @config_file_only = (
     "relay_log_info_file",
     "replicate-ignore(?:db|table)",
     "skip-bdb",
+    "skip-federated",
+    "skip-host-cache",
+    "symbolic-links",
     "user",
     #"log-bin.*",
     #"myisam-recover",
@@ -67,10 +77,12 @@ my @config_file_only = (
 my @mysql_on_off = (
     "log-bin",
     "log-slow-queries",
+    "log_slow_queries",
     "skip-slave-start",
 );
 
 my %mysql_convert_names = (
+    "key_buffer"        => "key_buffer_size",
     "myisam-recover"    => "myisam_recover_options",
     "skip-slave-start"  => "init_slave",
 );
@@ -91,7 +103,7 @@ my %mysql_modes = (
 env_creds("MYSQL", "MySQL");
 
 %options = (
-    "c|config|config-file=s"    => [ \$config_file,     "Path to MySQL my.cnf config file (default: $default_config_file)" ],
+    "c|config|config-file=s"    => [ \$config_file,     "Path to MySQL my.cnf config file (defaults: @default_config_locations)" ],
     %hostoptions,
     %useroptions,
     "d|mysql-instance=s"        => [ \$mysql_instance,  "MySQL [instance] in my.cnf to test (default: $default_mysql_instance)" ],
@@ -119,12 +131,25 @@ if($host){
     unless($mysql_socket){
         usage "host not defined and no mysql socket found, must specify one of --host or --socket";
     }
-    $mysql_socket = validate_filename($mysql_socket, 0, "mysql socket");
+    $mysql_socket = validate_filename($mysql_socket, "mysql socket");
 }
 $user        = validate_user($user);
 $password    = validate_password($password) if $password;
-$config_file = validate_filename($config_file);
-vlog2 "config file: '$config_file'";
+unless($config_file){
+    vlog2 "no config file specified";
+    foreach(@default_config_locations){
+        if( -f $_ ){
+            unless( -r $_ ) {
+                warn "config file '$_' found but not readable!\n";
+                next;
+            }
+            $config_file = $_;
+            vlog2 "found config file: $_";
+            last;
+        }
+    }
+}
+$config_file = validate_filename($config_file, "config file");
 $mysql_instance = validate_database($mysql_instance);
 
 vlog2;
@@ -148,6 +173,8 @@ sub parse_my_cnf {
         next if /^\s*$/;
         # TODO: add plugin validation code
         next if /^\s*plugin-load\s*=\s*innodb=ha_innodb_plugin\.so\s*;\s*innodb_trx=ha_innodb_plugin\.so\s*;\s*innodb_locks=ha_innodb_plugin\.so\s*;\s*innodb_lock_waits=ha_innodb_plugin\.so\s*;\s*innodb_cmp=ha_innodb_plugin\.so\s*;\s*innodb_cmp_reset=ha_innodb_plugin\.so\s*;\s*innodb_cmpmem=ha_innodb_plugin\.so\s*;\s*innodb_cmpmem_reset=ha_innodb_plugin\.so\s*$/;
+        # TODO: add support for include dir
+        next if /includedir/;
         chomp;
         /^\s*([\w-]+)\s*(?:=\s*([\/\w\:\,\.=-]+)\s*)?$/ or quit "CRITICAL", "unrecognized line in config file '$config_file': '$_' (not in expected format)";
 

@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-28 17:08:27 +0100 (Sun, 28 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -38,7 +38,7 @@ use HariSekhonUtils;
 #use HTML::TreeBuilder;
 use LWP::Simple '$ua';
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 set_port_default(60010);
 
@@ -69,7 +69,7 @@ foreach $table (@tables){
     }
 }
 
-vlog_options "tables", "[ " . join(" , ", @tables) . " ]";
+vlog_option "tables", "[ " . join(" , ", @tables) . " ]";
 vlog2;
 set_timeout();
 set_http_timeout($timeout / 2);

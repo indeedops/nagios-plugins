@@ -4,29 +4,31 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-28 23:26:28 +0000 (Mon, 28 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
 
 $DESCRIPTION = "Nagios Plugin to parse and alert on Hadoop FSCK output
 
-Checks the status of the HDFS FSCK output and optionally one of the following:
+Checks the status of the HDFS FSCK output and optionally one of the following against warning/critical thresholds:
 
 - Time in secs since last fsck (recommend setting thresholds to > 86400 ie once a day)
 - Time taken for FSCK in secs
 - Max number of HDFS blocks (affects NameNode)
 - Optionally outputs some more HDFS stats with perfdata for graphing (see also check_hadoop_replication.pl)
 
-In order to contrain the runtime of this plugin you must run the Hadoop FSCK separately and have this plugin check the output file results. Recommend you do not use any extra switches as it'll enlarge the output and slow down this result parsing plugin's execution time.
+In order to constrain the runtime of this plugin you must run the Hadoop FSCK separately and have this plugin check the output file results. Recommend you do not use any extra switches as it'll enlarge the output and slow down the plugin by forcing it to parse all the extra noise. As the 'hdfs' user run this periodically (via cron):
 
-hdfs fsck / &> /tmp/hdfs-fsck.log.tmp && mv /tmp/hdfs-fsck.log
+hdfs fsck / &> /tmp/hdfs-fsck.log.tmp && tail -n30 /tmp/hdfs-fsck.log.tmp > /tmp/hdfs-fsck.log
+
+and have the plugin check the results separately (the tail stops the log getting too big and slowing the plugin down if there is lots of corruption/missing lblocks which will end up enlarging the output - it gives us just the bit we need, which are the stats at the end):
 
 ./check_hadoop_fsck.pl -f /tmp/hdfs-fsck.log
 
-Tested on Hortonworks HDP 2.1";
+Tested on Hortonworks HDP 2.1 & HDP 2.2";
 
-$VERSION = "0.3";
+$VERSION = "0.3.1";
 
 use strict;
 use warnings;
@@ -46,8 +48,8 @@ my $stats;
 
 %options = (
     "f|file=s"   => [ \$file,       "HDFS FSCK result file" ],
-    "last-fsck"  => [ \$last_fsck,  "Check time in secs since last HDFS FSCK" ],
-    "fsck-time"  => [ \$fsck_time,  "Check HDFS FSCK time taken" ],
+    "last-fsck"  => [ \$last_fsck,  "Check time in secs since last HDFS FSCK against thresholds" ],
+    "fsck-time"  => [ \$fsck_time,  "Check HDFS FSCK time taken against thresholds" ],
     "max-blocks" => [ \$max_blocks, "Check max HDFS blocks against thresholds" ],
     "stats"      => [ \$stats,      "Output HDFS stats" ],
     %thresholdoptions,
@@ -166,7 +168,7 @@ if($verbose or $max_blocks){
 }
 my $msg2;
 if($stats){
-    $msg2 = sprintf(" size=%s dirs=%d files=%d min_replicated_blocks=%d 'min_replicated_blocks_%%'=%.2f%% over_rep_blocks=%d 'over_rep_blocks_%%'=%.2f%% under_rep_blocks=%d 'under_rep_blocks_%%'=%.2f%% mis_rep_blocks=%d 'mis_rep_blocks_%%'=%.2f%% default_rep_factor=%d avg_block_rep=%.2f corrupt_blocks=%d missing_replicas=%d 'missing_replicas_%%'=%.2f%% num_datanodes=%d num_racks=%d",
+    $msg2 = sprintf(", size=%s dirs=%d files=%d min_replicated_blocks=%d 'min_replicated_blocks_%%'=%.2f%% over_rep_blocks=%d 'over_rep_blocks_%%'=%.2f%% under_rep_blocks=%d 'under_rep_blocks_%%'=%.2f%% mis_rep_blocks=%d 'mis_rep_blocks_%%'=%.2f%% default_rep_factor=%d avg_block_rep=%.2f corrupt_blocks=%d missing_replicas=%d 'missing_replicas_%%'=%.2f%% num_datanodes=%d num_racks=%d",
     human_units($hdfs{"size"}),
     $hdfs{"dirs"}, $hdfs{"files"},
     $hdfs{"min_rep_blocks"},

@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-05 23:16:51 +0000 (Thu, 05 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -48,7 +48,7 @@ use HariSekhon::Datameer;
 use JSON::XS;
 use LWP::Simple '$ua';
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 my $job_id;
 

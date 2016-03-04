@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-13 19:32:32 +0100 (Sun, 13 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -19,7 +19,7 @@ Uses nodetool's status command to determine how many downed nodes there are to c
 
 Can specify a remote host and port otherwise assumes to check via localhost
 
-Written and tested against Cassandra 2.0.1 and 2.0.9, DataStax Community Edition";
+Tested on Cassandra 2.0.1, 2.0.9, 2.2.5 - DataStax Community Edition";
 
 $VERSION = "0.4.2";
 

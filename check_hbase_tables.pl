@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-26 18:52:38 +0100 (Fri, 26 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -89,7 +89,7 @@ foreach $table (@tables){
         $table = isDatabaseTableName($table) || usage "invalid table name $table given";
     }
 }
-vlog_options "tables", "[ " . join(" , ", @tables) . " ]";
+vlog_option "tables", "[ " . join(" , ", @tables) . " ]";
 
 vlog2;
 set_timeout();

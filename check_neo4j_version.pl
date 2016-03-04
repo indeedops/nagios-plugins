@@ -4,16 +4,16 @@
 #  Author: Hari Sekhon
 #  Date: 2014-05-26 19:41:43 +0100 (Mon, 26 May 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
 $DESCRIPTION = "Nagios Plugin to check Neo4j version using the Neo4j REST API
 
-Tested on Neo4j 2.0.3";
+Tested on Neo4j 1.9.4, 2.0.3, 2.3.2";
 
-$VERSION = "0.1";
+$VERSION = "0.2";
 
 use strict;
 use warnings;
@@ -33,15 +33,20 @@ $ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 %options = (
     %hostoptions,
+    %useroptions,
     %expected_version_option,
+    %ssloptions,
 );
 @usage_order = qw/host port expected/;
 
 get_options();
 
-$host               = validate_host($host);
-$port               = validate_port($port);
-$expected_version   = validate_regex($expected_version, "expected version") if defined($expected_version);
+$host = validate_host($host);
+$port = validate_port($port);
+$user = validate_user($user) if defined($user);
+$password = validate_password($password) if defined($password);
+$expected_version = validate_regex($expected_version, "expected version") if defined($expected_version);
+validate_ssl();
 
 vlog2;
 set_timeout();
@@ -51,7 +56,7 @@ $status = "OK";
 my $url_prefix = "http://$host:$port";
 my $url = "$url_prefix/db/data";
 
-my $content = curl $url, "Neo4j";
+my $content = curl $url, "Neo4j", $user, $password;
 my $json;
 try {
     $json = decode_json($content);

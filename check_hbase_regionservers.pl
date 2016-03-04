@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-28 23:39:55 +0100 (Sun, 28 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -24,7 +24,7 @@ BEGIN {
 use HariSekhonUtils;
 use LWP::Simple '$ua';
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 my $default_port = 20550;
 $port = $default_port;
@@ -49,7 +49,7 @@ $host   = validate_host($host);
 $host   = validate_resolvable($host);
 $port   = validate_port($port);
 my $url = "http://$host:$port/status/cluster";
-vlog_options "url", $url;
+vlog_option "url", $url;
 validate_thresholds();
 
 vlog2;

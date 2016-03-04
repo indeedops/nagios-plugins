@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-05 19:13:20 +0100 (Sat, 05 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -13,7 +13,7 @@ $DESCRIPTION = "Nagios Plugin to check if a given file is present in AWS S3 via 
 
 Bucket names must follow the more restrictive 3 to 63 alphanumeric character international standard, dots are not supported in the bucket name due to using strict DNS shortname regex validation";
 
-$VERSION = "0.3";
+$VERSION = "0.4.1";
 
 use strict;
 use warnings;
@@ -30,7 +30,7 @@ use Time::HiRes 'time';
 use XML::Simple;
 
 our $ua = LWP::UserAgent->new;
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 my $aws_host = "s3.amazonaws.com";
 my $bucket;
@@ -78,15 +78,15 @@ if(defined($ssl_noverify)){
     $ua->ssl_opts( verify_hostname => 0 );
 }
 if(defined($ssl_ca_path)){
-    $ssl_ca_path = validate_directory($ssl_ca_path, undef, "SSL CA directory", "no vlog");
+    $ssl_ca_path = validate_directory($ssl_ca_path, "SSL CA directory", undef, "no vlog");
     $ua->ssl_opts( ssl_ca_path => $ssl_ca_path );
 }
 if($no_ssl){
-    vlog_options "ssl enabled",  "false";
+    vlog_option "ssl enabled",  "false";
 } else {
-    vlog_options "ssl enabled",  "true";
-    vlog_options "SSL CA Path",  $ssl_ca_path  if defined($ssl_ca_path);
-    vlog_options "ssl noverify", "true" if $ssl_noverify;
+    vlog_option "ssl enabled",  "true";
+    vlog_option "SSL CA Path",  $ssl_ca_path  if defined($ssl_ca_path);
+    vlog_option "ssl noverify", "true" if $ssl_noverify;
 }
 
 vlog2;
@@ -114,7 +114,7 @@ $request_type = "GET" if $GET;
 my $canonicalized_string = "$request_type\n\n\n$date_header\n/$bucket/$file";
 # converts in place
 utf8::encode($canonicalized_string);
-#vlog_options "canonicalized_string", "'$canonicalized_string'";
+#vlog_option "canonicalized_string", "'$canonicalized_string'";
 
 vlog2 "crafting authenticated request";
 my $request = HTTP::Request->new($request_type => $url);
@@ -142,8 +142,14 @@ if($res->code eq 200){
     $msg .= " $aws_host in $time_taken secs | time_taken=${time_taken}s";
 } else {
     critical;
-    my $data = XMLin($res->content, forcearray => 1, keyattr => []);
-    $msg = "failed to retrieve file '$file' from $aws_host: " . $res->status_line . " - " . $data->{Message}[0];
+    my $data;
+    if($res->content){
+        $data = XMLin($res->content, forcearray => 1, keyattr => []);
+    }
+    $msg = "failed to retrieve file '$file' from $aws_host: " . $res->status_line;
+    if(defined($data)){
+        $msg .= " - " . $data->{Message}[0];
+    }
 }
 
 quit $status, $msg;

@@ -5,7 +5,7 @@
 #  Date: 2013-11-17 00:22:17 +0000 (Sun, 17 Nov 2013)
 #  Continuation an idea from Q3/Q4 2012, inspired by other similar NoSQL plugins developed a few years earlier
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -20,7 +20,7 @@ Checks:
 4. Checks the message received is the same as the one published
 5. compares each operation's time taken against the warning/critical thresholds if given
 
-Developed on Redis 2.4.10";
+Tested on Redis 2.4.10, 2.8.19, 3.0.7";
 
 $VERSION = "0.6";
 
@@ -33,6 +33,7 @@ BEGIN {
 use HariSekhonUtils;
 use HariSekhon::Redis;
 use Redis;
+use Sys::Hostname;
 use Time::HiRes qw/time sleep/;
 
 my $default_subscriber_wait = 0.001;
@@ -60,9 +61,9 @@ vlog2;
 my $epoch  = time;
 my $random_string = random_alnum(20);
 my $channel  = "HariSekhon:$progname:$host:$epoch:" . substr($random_string, 0, 10);
-my $message  = "This is a publish-subscribe test message from HariSekhon:$progname:$host at epoch $epoch with random token: $random_string";
-vlog_options "channel", $channel;
-vlog_options "message", $message;
+my $message  = "This is a publish-subscribe test message from " . hostname . ":HariSekhon:$progname to $host at epoch $epoch with random token: $random_string";
+vlog_option "channel", $channel;
+vlog_option "message", $message;
 vlog2;
 set_timeout();
 

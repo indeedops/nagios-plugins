@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-21 03:06:42 +0100 (Sun, 21 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -22,7 +22,9 @@ Checks:
 5. records the write/read/delete timings to a given precision for reporting and graphing
 6. compares each operation's time taken against the warning/critical thresholds if given
 
-Control of Riak's n_val for the nagios bucket should be done separately, preferably by pre-creating the bucket with the desired n_val";
+Control of Riak's n_val for the nagios bucket should be done separately, preferably by pre-creating the bucket with the desired n_val
+
+Tested on Riak 1.x, 2.0.0, 2.1.1";
 
 $VERSION = "0.8.1";
 
@@ -69,9 +71,9 @@ my $bucket = "nagios";
 my $value  = random_alnum(20);
 my $key    = "HariSekhon:$progname:$host:$epoch:" . substr($value, 0, 10);
 my $bucket_key = "key '$key' bucket '$bucket'";
-vlog_options "bucket", $bucket;
-vlog_options "key",    $key;
-vlog_options "value",  $value;
+vlog_option "bucket", $bucket;
+vlog_option "key",    $key;
+vlog_option "value",  $value;
 
 vlog2;
 set_timeout();
@@ -81,7 +83,7 @@ $ua->show_progress(1) if $debug;
 
 my $ip     = validate_resolvable($host);
 my $url    = "http://$ip:$port/riak/$bucket/$key";
-vlog_options "url",    $url;
+vlog_option "url",    $url;
 
 
 sub riak_key($){

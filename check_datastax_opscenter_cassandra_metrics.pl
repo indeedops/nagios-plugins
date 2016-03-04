@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-18 18:44:35 +0100 (Fri, 18 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -55,7 +55,7 @@ my $period = 1; # last minute
 my $latest_only;
 #my @metrics;
 
-env_vars(["DATASTAX_OPSCENTER_DATACENTER", "DATACENTER"], $dc);
+env_vars(["DATASTAX_OPSCENTER_DATACENTER", "DATACENTER"], \$dc);
 
 %options = (
     %hostoptions,
@@ -95,7 +95,7 @@ if($device){
     $device = validate_alnum($device, "device");
 }
 if($latest_only){
-    vlog_options "latest only", "true";
+    vlog_option "latest only", "true";
     vlog2 "resetting --time-period to 1 since --latest-only is set" if $period ne 1;
     $period = 1;
 }
@@ -108,7 +108,7 @@ $period = validate_int($period, "time period (last N minutes)", 1);
 #    }
 #    @metrics or usage "no valid metrics given";
 #    @metrics = uniq_array @metrics;
-#    vlog_options "metrics", "[ " . join(" ", @metrics) . " ]"; 
+#    vlog_option "metrics", "[ " . join(" ", @metrics) . " ]"; 
 #}
 #$metric = $metrics[0];
 validate_thresholds();

@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-23 20:58:14 +0000 (Mon, 23 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -13,7 +13,9 @@ $DESCRIPTION = "Nagios Plugin to check a Spark Worker via HTTP interface
 
 Optionally checks the memory used % of the worker if given thresholds
 
-Tested on Apache Spark 0.8.1 and 0.9.0 standalone and 0.9.0 on Cloudera CDH 5";
+Written for Apache Spark 0.8.1 / 0.9.0 standalone (also tested on 0.9.0 on Cloudera CDH 5.0)
+
+Tested on Apache Spark 1.5.0 standalone";
 
 $VERSION = "0.1";
 

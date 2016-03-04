@@ -4,16 +4,16 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-17 22:35:14 +0000 (Tue, 17 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
 $DESCRIPTION = "Nagios Plugin to check a given Mongod is the Master/Primary of a MongoDB Replica Set
 
-Tested on MongoDB 2.4.8 and 2.6.1";
+Tested on MongoDB 2.4.8, 2.6.1, 3.2.1";
 
-$VERSION = "0.2";
+$VERSION = "0.3.0";
 
 use strict;
 use warnings;
@@ -38,7 +38,7 @@ splice @usage_order, 6, 0, "expected-master";
 
 get_options();
 
-validate_mongo_hosts();
+$hosts    = validate_mongo_hosts($host);
 $user     = validate_user($user);
 $password = validate_password($password) if $password;
 if(scalar @hosts > 1){
@@ -52,7 +52,7 @@ set_timeout();
 
 $status = "OK";
 
-my $client = connect_mongo();
+my $client = connect_mongo($hosts);
 
 my @dbs = $client->database_names;
 @dbs or quit "UNKNOWN", "no databases found on Mongod server, cannot call ismaster";

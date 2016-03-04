@@ -10,11 +10,13 @@
 #
 #  vim:ts=4:sts=4:sw=4:et
 
-$DESCRIPTION = "Nagios Plugin to check for MapR node alarms on a given cluster via the MapR Control System REST API
+$DESCRIPTION = "Nagios Plugin to check for MapR nodes with alarms via the MapR Control System REST API
 
 Can optionally specifying a cluster to check for all nodes in that cluster with alarms managed by the MapR Control System by default.
 
 Can also optionally specify a node to check for alarms only on that specific node.
+
+Thresholds apply to the number of nodes with alarms.
 
 Caveat: if specifying a cluster make sure to specify the correct cluster name as otherwise no node alarms will be found. This is a limitation of the behaviour of the MCS API to return no results (indistinguishable from a valid cluster with no alarms) instead of raising an error for an invalid cluster name. See --list-clusters. The same issue exists with specifying a node, although that's a limitation of iterating over the results to search for a node match.
 

@@ -3,7 +3,7 @@
 #  Author: Hari Sekhon
 #  Date: 2007-06-04 11:20:59 +0100 (Mon, 04 Jun 2007)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -38,7 +38,7 @@ try:
 except ImportError:
     print "You must have the MySQLdb python library",
     print "installed to run this plugin"
-    sys.exit(UNKNOWN)
+    sys.exit(CRITICAL)
 from optparse import OptionParser
 
 SCRIPTNAME = os.path.basename(sys.argv[0])

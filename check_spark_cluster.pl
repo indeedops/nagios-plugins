@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-23 20:58:14 +0000 (Mon, 23 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -13,9 +13,11 @@ $DESCRIPTION = "Nagios Plugin to check a Spark cluster via the Spark Master HTTP
 
 Optional thresholds can be applied to the number of Spark Workers
 
-Tested on Apache Spark 0.8.1 and 0.9.1 standalone and 0.9.0 on Cloudera CDH 5.0";
+Written for Apache Spark 0.8.1 / 0.9.1 standalone (also tested on 0.9.0 on Cloudera CDH 5.0)
 
-$VERSION = "0.1";
+Updated for Apache Spark 1.5.0 standalone";
+
+$VERSION = "0.2";
 
 use strict;
 use warnings;
@@ -59,21 +61,22 @@ my $html = curl $url, "Spark Master";
 
 $html =~ /Spark Master at spark:\/\//i or quit "UNKNOWN", "returned html implies this is not the Spark Master, did you connect to the wrong service/host/port? Apache Spark defaults to port 8080 but in Cloudera CDH it defaults to port 18080. Also try incrementing the port number as Spark will bind to a port number 1 higher if the initial port is already occupied by another process";
 
-#$html =~ /Workers:.*?(\d+)/i or quit "UNKNOWN", "failed to determine spark cluster workers. $nagios_plugins_support_msg";
-#my $workers           = $1;
-my $workers = 0;
-foreach(split("\n", $html)){
-    /ALIVE/ && $workers++;
-}
-$html =~ /Cores:.*?(\d+)\s+Total.*(\d+)\s+Used/is or quit "UNKNOWN", "failed to determine spark cluster cores. $nagios_plugins_support_msg";
+$html =~ /Workers.*?(\d+)/i or quit "UNKNOWN", "failed to determine spark cluster workers. $nagios_plugins_support_msg";
+my $workers           = $1;
+# matches status line "Status: ALIVE" in master
+#my $workers = 0;
+#foreach(split("\n", $html)){
+#    /ALIVE/ && $workers++;
+#}
+$html =~ /Cores.*?(\d+)\s+Total.*?(\d+)\s+Used/ism or quit "UNKNOWN", "failed to determine spark cluster cores. $nagios_plugins_support_msg";
 my $cores             = $1;
 my $cores_used        = $2;
-$html =~ /Memory:.*?(\d+(?:\.\d+)?)\s*(\w+)\s+Total.*?(\d+(?:\.\d+)?)\s*(\w+)\s+Used/is or quit "UNKNOWN", "failed to determine spark cluster memory. $nagios_plugins_support_msg";
+$html =~ /Memory.*?(\d+(?:\.\d+)?)\s*(\w+)\s+Total.*?(\d+(?:\.\d+)?)\s*(\w+)\s+Used/ism or quit "UNKNOWN", "failed to determine spark cluster memory. $nagios_plugins_support_msg";
 my $memory            = $1;
 my $memory_units      = $2;
 my $memory_used       = $3;
 my $memory_used_units = $4;
-$html =~ /Applications:.*?(\d+).*?Running.*?(\d+).*?Completed/is or quit "UNKNOWN", "failed to determine spark applications. $nagios_plugins_support_msg";
+$html =~ /Applications.*?(\d+).*?Running.*?(\d+).*?Completed/ism or quit "UNKNOWN", "failed to determine spark applications. $nagios_plugins_support_msg";
 my $apps_running      = $1;
 my $apps_completed    = $2;
 

@@ -4,14 +4,14 @@
 #  Author: Hari Sekhon
 #  Date: 2011-06-17 15:03:12 +0100 (Fri, 17 Jun 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
 $DESCRIPTION = "Nagios Plugin to test a Linux Interface for errors, promisc mode etc, designed to be run locally on machine over NRPE or similar";
 
-$VERSION = "0.8.8";
+$VERSION = "0.8.9";
 
 use strict;
 use warnings;
@@ -22,6 +22,7 @@ BEGIN {
     use lib dirname(__FILE__) . "/lib";
 }
 use HariSekhonUtils;
+use Math::Round;
 
 my $errors = 0;
 my $ethtool  = "/sbin/ethtool";
@@ -55,26 +56,26 @@ if(defined($expected_duplex)){
     $expected_duplex = ucfirst lc $expected_duplex;
     $expected_duplex =~ /^(Full|Half)$/ or usage "invalid duplex specified, must be either Full or Half";
     $expected_duplex = $1;
-    vlog_options "expected duplex", $expected_duplex;
+    vlog_option "expected duplex", $expected_duplex;
 }
 
 if(defined($expected_speed)){
     $expected_speed =~ /^(10{1,4})$/ or usage "invalid speed specified, must be one of: 10/100/1000/10000";
     $expected_speed = $1;
-    vlog_options "expected speed", $expected_speed;
+    vlog_option "expected speed", $expected_speed;
 }
 
 if(defined($expected_mtu)){
     $expected_mtu =~ /^(\d{1,4})$/ or usage "invalid mtu specified, must be 1-4 digits";
     $expected_mtu = $1;
-    vlog_options "expected mtu", $expected_mtu;
+    vlog_option "expected mtu", $expected_mtu;
 }
 
 if(defined($expected_promisc)){
     # lc $expected_promisc;
     $expected_promisc =~ /^(on|off)$/ or usage "promiscuous mode must be either set to either 'on' or 'off'";
     $expected_promisc = $1;
-    vlog_options "expected promiscuous mode", $expected_promisc;
+    vlog_option "expected promiscuous mode", $expected_promisc;
 }
 vlog2;
 
@@ -264,7 +265,7 @@ if($statefile_found and not $stats_missing){
 
     # Only do per sec for things that make sense, 1 collision or 1 error will average out to 0 after 1 sec
     foreach(qw/RX_packets RX_bytes TX_packets TX_bytes/){
-        $stats_diff{$_} = int((($stats{$_} - $last_stats{$_} ) / $secs) + 0.5);
+        $stats_diff{$_} = round(($stats{$_} - $last_stats{$_} ) / $secs);
         if ($stats_diff{$_} < 0) {
             quit "UNKNOWN", "recorded stat $_ is higher than current stat, resetting stats";
         }
@@ -393,13 +394,13 @@ if(not $statefile_found) {
 } elsif ($stats_missing){
     $msg .= " (stats missing from state file, resetting values, should be available from next run)";
 } else {
-    $msg .= "|";
+    $msg .= " |";
     foreach(sort keys %stats){
         next if ($_ eq "interrupts" and $stats{$_} eq "N/A");
         if(defined($stats_diff{$_})){
-            $msg .= "'$_/sec'=$stats_diff{$_} ";
+            $msg .= " '$_/sec'=$stats_diff{$_}";
         } else {
-            $msg .= "$_=$stats{$_} ";
+            $msg .= " $_=$stats{$_}";
         }
     }
 }

@@ -4,23 +4,25 @@
 #  Author: Hari Sekhon
 #  Date: 2011-08-22 15:56:27 +0000 (Mon, 22 Aug 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
-$DESCRIPTION = "Nagios Plugin to check MySQL arbitrary queries against regex matches or numerical ranges, with perfdata support
+$DESCRIPTION = "Nagios Plugin to check arbitrary MySQL queries against regex matches or numerical ranges, with perfdata support
 
 It looks like a similar plugin has now been added to the standard Nagios Plugins collection, although this one still has more features.
 
-Only the first row return is considered for the result so your SQL query should take that in to account.
+Only the first row returned is considered for the result so your SQL query should take that in to account.
 
 DO NOT ADD a semi-colon to the end of your query in Nagios, although this plugin can handle this fine and it works on the command line, in Nagios the command will end up being prematurely terminated and result in a null critical error that is hard to debug and that this plugin cannot catch since it's raised by the shell before this plugin is executed
+
+Tested on MySQL 5.0, 5.1, 5.5, 5.7
 ";
 
 # TODO: add retry switch if valid below threshold
 
-$VERSION = "1.1.0";
+$VERSION = "1.1.5";
 
 use strict;
 use warnings;
@@ -33,12 +35,13 @@ use HariSekhonUtils;
 use DBI;
 
 set_port_default(3306);
+set_timeout_max(3600);
 
 my @default_mysql_sockets = ( "/var/lib/mysql/mysql.sock", "/tmp/mysql.sock");
 my $mysql_socket;
 
 my $default_message = "query returned";
-my $database = "";
+my $database;
 my $epoch;
 my $query;
 my $field = 1;
@@ -55,11 +58,12 @@ my $short;
 my $units = "";
 
 env_creds("MYSQL", "MySQL");
+env_var("MYSQL_DATABASE", \$database);
 
 %options = (
     %hostoptions,
     %useroptions,
-    "d|database=s"  => [ \$database, "MySQL database" ],
+    "d|database=s"  => [ \$database, "MySQL database (\$MYSQL_DATABASE)" ],
     "s|mysql-socket=s" => [ \$mysql_socket,    "MySQL socket file through which to connect (defaults: " . join(", ", @default_mysql_sockets) . ")" ],
     "q|query=s"     => [ \$query,    "MySQL query to execute" ],
     "f|field=s"     => [ \$field,    "Field number/name to check the results of (defaults to '1')" ],
@@ -95,7 +99,7 @@ if($host){
     unless($mysql_socket){
         usage "host not defined and no mysql socket found, must specify one of --host or --mysql-socket";
     }
-    $mysql_socket = validate_filename($mysql_socket, 0, "mysql socket");
+    $mysql_socket = validate_filename($mysql_socket, "mysql socket");
 }
 $user       = validate_user($user);
 $password   = validate_password($password) if $password;
@@ -139,7 +143,7 @@ if($host){
     or quit "CRITICAL", "Couldn't connect to '$host:$port' database '$database' (DBI error: " . DBI->errstr . ")";
 } else { # connect through local socket
     vlog2 "connecting to MySQL database via socket '$mysql_socket'\n";
-    $dbh = DBI->connect("DBI:mysql:", $user, $password, { mysql_socket => $mysql_socket, Taint => 1, PrintError => 0, RaiseError => 0 }) || quit "CRITICAL", "failed to connect to MySQL database through socket: $DBI::errstr";
+    $dbh = DBI->connect("DBI:mysql:$database", $user, $password, { mysql_socket => $mysql_socket, Taint => 1, PrintError => 0, RaiseError => 0 }) || quit "CRITICAL", "failed to connect to MySQL database through socket: $DBI::errstr";
 };
 vlog2 "login to database successful\n";
 
@@ -250,4 +254,5 @@ if ($graph and isFloat($result, 1)) {
 }
 $msg .= "mysql_query_time=${query_time}s" unless $no_querytime;
 
+vlog2;
 quit $status, $msg;

@@ -4,19 +4,22 @@
 #  Author: Hari Sekhon
 #  Date: 2012-05-11 15:49:14 +0100 (Fri, 11 May 2012)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
+my @valid_types = qw/A MX NS PTR SOA SRV TXT/;
+
 $DESCRIPTION = "Nagios Plugin to test a DNS record
 
-Primarily written to check things like NS and MX records for domains
-which the standard check_dns Nagios plugin can't do";
+Primarily written to check things like NS and MX records for domains which the standard check_dns Nagios plugin can't do.
+
+Full list of supported record types: " . join(", ", @valid_types);
 
 # TODO: root name servers switch, determine root name servers for the specific TLD and go straight to them to bypass intermediate caching
 
-$VERSION = "0.7.3";
+$VERSION = "0.8.1";
 
 use strict;
 use warnings;
@@ -26,7 +29,8 @@ BEGIN {
     use File::Basename;
     use lib dirname(__FILE__) . "/lib";
 }
-use HariSekhonUtils;
+use HariSekhonUtils qw/:DEFAULT :regex/;
+use Data::Dumper;
 
 $status_prefix = "DNS";
 my $default_type = "A";
@@ -38,9 +42,6 @@ my $expected_result;
 my $expected_regex;
 my $expected_regex2;
 my $no_uniq_results;
-
-# TODO: add SRV support
-my @valid_types = qw/A MX NS PTR TXT/;
 
 %options = (
     "s|server=s"            => [ \$server,          "DNS server(s) to query, can be a comma separated list of servers" ],
@@ -56,22 +57,24 @@ get_options();
 
 $server or usage "server(s) not specified";
 @servers = split(/\s*[,\s]\s*/, $server);
-foreach(@servers){
-    $_ = isHostname($_) || isIP($_) || usage "invalid server '$_' given, should be a hostname or IP address";
+for(my $i=0; $i < scalar @servers; $i++){
+    $servers[$i] = validate_host($servers[$i]);
 }
-grep($type, @valid_types) or usage "unsupport type '$type' given, must be one of: " . join(",", @valid_types);
+grep($type, @valid_types) or usage "unsupported type '$type' given, must be one of: " . join(",", @valid_types);
 if($type eq "PTR"){
     $record = isIP($record) or usage "invalid record given for type PTR, should be an IP";
+} elsif($type eq "SRV"){
+    $record =~ /^[A-Za-z_\.-]+\.$domain_regex/ or usage "invalid record given for type SRV, must contain only alphanumeric, underscores, dashes followed by a valid domain name format";
 } else {
     $record = isDomain($record) or isFqdn($record) or usage "invalid record given, should be a domain or fully qualified host name";
 }
-vlog_options "server", join(",", @servers);
-vlog_options "record", $record;
-vlog_options "type",   $type;
+vlog_option "server", join(",", @servers);
+vlog_option "record", $record;
+vlog_option "type",   $type;
 
 my @expected_results;
 if($expected_result){
-    @expected_results = sort split(/\s*,\s*/, $expected_result);
+    @expected_results = sort split(/\s*,\s*/,   $expected_result);
     if($type eq "A"){
         foreach(@expected_results){
             isIP($_) or usage "invalid expected result '$_' for A record, should be an IP address";
@@ -81,7 +84,7 @@ if($expected_result){
             isFqdn($_) or usage "invalid expected result '$_' for CNAME/MX/NS/PTR record, should be an fqdn";
         }
     }
-    vlog_options "expected results", $expected_result;
+    vlog_option "expected results", $expected_result;
 }
 $expected_regex2 = validate_regex($expected_regex) if defined($expected_regex);
 
@@ -90,8 +93,15 @@ set_timeout();
 
 $status = "OK";
 
+my @resolved_dns_servers;
+for(my $i=0; $i < scalar @servers; $i++){
+    $servers[$i] = resolve_ip($servers[$i]) || next;
+    push(@resolved_dns_servers, $servers[$i]);
+}
+@resolved_dns_servers || quit "CRITICAL", "no given DNS servers resolved to IPs, cannot query them";
+
 my $res = Net::DNS::Resolver->new(
-    nameservers => [@servers],
+    nameservers => [@resolved_dns_servers],
     recurse     => 1,
     debug       => $debug,
 );
@@ -109,13 +119,17 @@ my $start = time;
 my $query = $res->query($record, $type);
 my $stop  = time;
 my $total_time = sprintf("%.4f", $stop - $start);
-$query or quit "CRITICAL", "query returned with no answer from servers " . join(",", @servers) . " in $total_time secs";
+vlog2;
+plural @servers;
+$query or quit "CRITICAL", "query returned with no answer from server$plural " . join(",", @servers) . " in $total_time secs" . ( $verbose ? " for record '$record' type '$type'" : "");
 vlog2 "query returned in $total_time secs";
-my $perfdata = "| dns_query_time='${total_time}s'";
+my $perfdata = " | dns_query_time='${total_time}s'";
 
+vlog3 "returned records:\n";
 foreach my $rr ($query->answer){
+    vlog3 Dumper($rr);
     my $result;
-     if($rr->type eq "A"){
+    if($rr->type eq "A"){
         $result = $rr->address;
     } elsif($rr->type eq "CNAME"){
         $result = $rr->cname;
@@ -126,16 +140,22 @@ foreach my $rr ($query->answer){
         $result = $rr->nsdname;
     } elsif($rr->type eq "PTR"){
         $result = $rr->ptrdname;
+    } elsif($rr->type eq "SOA"){
+        $result = $rr->serial;
+    } elsif($rr->type eq "SRV"){
+        $result = $rr->target;
     } elsif($rr->type eq "TXT"){
         $result = $rr->txtdata;
     } else {
         quit "UNKNOWN", "unknown/unsupported record type '$rr->type' returned for record '$record'";
     }
-    vlog2 "got result: $result";
+    vlog2 "got result: $result\n";
     if($type eq "A"){
         isIP($result) or quit "CRITICAL", "invalid result '$result' returned for A record by DNS server, expected IP address for A record$perfdata";
-    } elsif(grep($type, qw/CNAME MX NS PTR/)){
-        isFqdn($result) or quit "CRITICAL", "invalid result '$result' returned by DNS server, expected FQDN for this record type$perfdata";
+    } elsif(grep { $type eq $_ } qw/CNAME MX NS PTR SRV/){
+        isFqdn($result) or quit "CRITICAL", "invalid result '$result' returned " . ($verbose ? "for record '$record' type '$type' ": "") . "by DNS server, expected FQDN for this record type$perfdata";
+    } elsif($type eq "SOA"){
+        isInt($result) or quit "CRITICAL", "invalid serial result '$result' returned for SOA record " . ($verbose ? "'$record' ": "") . "by DNS server, expected an unsigned integer$perfdata";
     }
     push(@results, $result);
     if(@expected_results){
@@ -173,6 +193,8 @@ if(scalar @rogue_results or scalar @missing_results){
 } elsif(scalar @regex_mismatches){
     critical;
     $msg .= "regex validation failed on '" . join(",", @regex_mismatches) . "' against regex '$expected_regex', returns '";
+} elsif($type eq "SOA"){
+    $msg .= "return serial '";
 } else {
     $msg .= "returns '";
 }
@@ -187,9 +209,9 @@ $msg .= $perfdata;
 
 my $extended_command = dirname $progname;
 $extended_command .= "/$progname -s $server -r $record -q $type";
-$extended_command .= " -e $expected_result" if $expected_result;
+$extended_command .= " -e $expected_result"  if $expected_result;
 $extended_command .= " -R '$expected_regex'" if $expected_regex;
-$extended_command .= " -t $timeout"   if($timeout ne $timeout_default);
+$extended_command .= " -t $timeout"          if($timeout ne $timeout_default);
 vlog3 "\nextended command: $extended_command\n\n";
 
 quit $status, $msg;

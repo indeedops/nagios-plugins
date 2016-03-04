@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2014-09-15 23:11:32 +0100 (Mon, 15 Sep 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -61,9 +61,9 @@ if($run and not $rule){
 if($rule){
     $rule =~ /^([\w-]+)$/ or usage "invalid --check argument, must be alphanumeric with dashes or underscores";
     $rule = $1;
-    vlog_options "rule", $rule;
+    vlog_option "rule", $rule;
 }
-vlog_options "run now", ( $run ? "true" : "false");
+vlog_option "run now", ( $run ? "true" : "false");
 
 vlog2;
 set_timeout();

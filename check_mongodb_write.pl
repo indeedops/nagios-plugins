@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-09-22 18:54:39 +0100 (Sun, 22 Sep 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -21,7 +21,7 @@ Once it connects to the Primary, it will perform the following checks:
 4. records the write/read/delete timings to a given precision and outputs perfdata for graphing
 5. compares each operation's time taken against the warning/critical thresholds if given
 
-Tested on MongoDB 2.4.8 and 2.6.1, standalone mongod, mongod Replica Sets, mongos with Sharded Replica Sets, with and without authentication
+Tested on MongoDB 2.4.8, 2.6.1, 3.2.1 - standalone mongod, mongod Replica Sets, mongos with Sharded Replica Sets, with and without authentication
 
 Write concern and Read concern take the following options with --write-concern and --read-concern:
 
@@ -43,7 +43,7 @@ MongoDB Library Limitations:
     - Using a write-concern higher than the number of members of a Replica Set will result in a timeout error from the library (wtimeout which defaults to 1 second)
 ";
 
-$VERSION = "0.4";
+$VERSION = "0.5.0";
 
 # TODO: Read Preference straight pass thru qw/primary secondary primaryPreferred secondaryPreferred nearest/
 # TODO: check_mongodb_write_replication.pl link and enforce secondary Read Preference
@@ -106,7 +106,7 @@ my $precision         = $default_precision;
 @usage_order = qw/host port database collection user password write-concern read-concern wtimeout ssl sasl sasl-mechanism warning critical precision/;
 get_options();
 
-validate_mongo_hosts();
+$hosts       = validate_mongo_hosts($host);
 $database    = validate_database($database, "Mongo");
 $collection  = validate_collection($collection, "Mongo");
 #unless(($user + $password) / 2 == 0) {
@@ -133,8 +133,8 @@ if(isInt($read_concern)){
 } else {
     grep { $read_concern  eq $_ } @valid_concerns  or usage "invalid read concern given";
 }
-vlog_options "write concern", $write_concern;
-vlog_options "read concern",  $read_concern;
+vlog_option "write concern", $write_concern;
+vlog_option "read concern",  $read_concern;
 validate_int($wtimeout, "wtimeout", 1, 1000000);
 validate_mongo_sasl();
 validate_thresholds(undef, undef, { "simple" => "upper", "positive" => 1, "integer" => 0 } );
@@ -150,7 +150,7 @@ my $value      = random_alnum(20);
 my $hostname   = hostname;
 my $id         = "HariSekhon:$progname:$hostname:$epoch:" . substr($value, 0, 10);
 my $document   = "{ '_id': '$id', 'value': '$value' }";
-vlog_options "document", $document;
+vlog_option "document", $document;
 
 $status = "OK";
 
@@ -158,7 +158,7 @@ vlog2;
 set_timeout();
 
 my $start_time = time;
-my $client = connect_mongo(
+my $client = connect_mongo( $hosts,
                             {
                                 "w"              => $write_concern,
                                 "r"              => $read_concern,
@@ -166,13 +166,14 @@ my $client = connect_mongo(
                             }
 );
 
-if($user and $password){
-    vlog2 "authenticating against database '$database'";
-    try {
-        $client->authenticate($database, $user, $password) || quit "CRITICAL", "failed to authenticate: $!";
-    };
-    catch_quit "failed to authenticate";
-}
+# API changed in Mongo::Client 1.0, no longer supports this
+#if($user and $password){
+#    vlog2 "authenticating against database '$database'";
+#    try {
+#        $client->authenticate($database, $user, $password) || quit "CRITICAL", "failed to authenticate: $!";
+#    };
+#    catch_quit "failed to authenticate";
+#}
 
 my $master;
 if(defined($client->{'_master'}{'host'})){
@@ -216,7 +217,7 @@ catch{
     if($errmsg =~ /not master/){
         chomp $errmsg;
         $errmsg .= " You probably haven't specified the primary for the replica set in the list of MongoD instances? If you specified all MongoD instances in the replica set or connected via MongoS this may indicate a real problem. If you've got a sharded cluster and have specified the replica set directly you may have specified a replica set which isn't authoritative for the given shard key";
-    } elsif($errmsg =~ /timeout/){
+    } elsif($errmsg =~ /(<!, w)timeout/){
         chomp $errmsg;
         $errmsg .= " This can be caused by --write-concern being higher than the available replica set members";
     }

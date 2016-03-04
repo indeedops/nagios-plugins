@@ -3,7 +3,7 @@
 #  Author: Hari Sekhon
 #  Date: 2007-11-20 18:16:55 +0000 (Tue, 20 Nov 2007)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -667,7 +667,7 @@ def main():
 
     if version:
         print __version__
-        sys.exit(OK)
+        sys.exit(UNKNOWN)
 
     if not tester.leasefile:
         print "UNKNOWN: no lease file specified. See --help for details\n"

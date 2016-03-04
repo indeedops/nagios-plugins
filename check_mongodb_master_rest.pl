@@ -4,14 +4,16 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-17 22:35:14 +0000 (Tue, 17 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
 $DESCRIPTION = "Nagios Plugin to check a given MongoD is Master via REST API
 
-Tested on MongoDB 2.6.1";
+Authentication not supported yet, and Rest API is not recommended anyway.
+
+Tested on MongoDB 2.6.1, 3.2.1";
 
 $VERSION = "0.1";
 
@@ -29,12 +31,15 @@ set_port_default(28017);
 
 %options = (
     %hostoptions,
+#    %useroptions,
 );
 
 get_options();
 
 $host = validate_host($host);
 $port = validate_port($port);
+#$user = validate_user($user) if defined($user) and defined($password);
+#$password = validate_password($password) if defined($password);
 
 vlog2;
 set_timeout();

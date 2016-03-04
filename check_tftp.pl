@@ -4,12 +4,14 @@
 #  Author: Hari Sekhon
 #  Date: 2010-08-11 17:12:01 +0000 (Wed, 11 Aug 2010)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
-$DESCRIPTION = "Nagios Plugin to check a TFTP Server is working by fetching a given file from the server";
+$DESCRIPTION = "Nagios Plugin to check a TFTP Server is working by fetching a given file from the server
+
+I originally wrote this to check my PXE boot servers were available and serving pxelinux";
 
 $VERSION = "0.2";
 

@@ -4,14 +4,18 @@
 #  Author: Hari Sekhon
 #  Date: 2011-05-28 22:23:05 +0000 (Sat, 28 May 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
-$DESCRIPTION = "Nagios Plugin to check MemCached statistics";
+$DESCRIPTION = "Nagios Plugin to check MemCached statistics
 
-$VERSION = "0.7";
+Tested on Memcached from around 2010/2011, plus 1.4.4, 1.4.25
+
+Will not work on Couchbase's embedded Memcached as it won't find the expected stats";
+
+$VERSION = "0.9";
 
 use strict;
 use warnings;
@@ -20,17 +24,15 @@ BEGIN {
     use File::Basename;
     use lib dirname(__FILE__) . "/lib";
 }
-use HariSekhonUtils;
+use HariSekhonUtils qw/:DEFAULT :time/;
 
-my $default_port = 11211;
-$port = $default_port;
+set_port_default(11211);
+set_timeout_range(1, 60);
 
-$timeout_min = 1;
-$timeout_max = 60;
+env_creds("MEMCACHED");
 
 %options = (
-    "H|host=s"           => [ \$host,       "Host to connect to" ],
-    "P|port=i"           => [ \$port,       "Port to connect to (default: $default_port)" ],
+    %hostoptions,
     "w|warning=i"        => [ \$warning,    "Warning threshold for current connections" ],
     "c|critical=i"       => [ \$critical,   "Critical threshold for current connections" ],
 );
@@ -40,7 +42,7 @@ get_options();
 
 $host = validate_host($host);
 $port = validate_port($port);
-validate_thresholds(1,1);
+validate_thresholds(1, 1, { 'simple' => 'upper', 'positive' => 1, 'integer' => 1});
 vlog2;
 
 set_timeout();
@@ -99,15 +101,17 @@ my %stats2 = (
     "version"               => [0, 0],
 );
 
-vlog3 "sending stats request";
+vlog2 "sending stats request";
 print $conn "stats\n" or quit "CRITICAL", "Failed to send stat request: $!";
-vlog3 "stats request sent";
+vlog2 "stats request sent";
 my $line;
 my $linecount = 0;
 my $err_msg;
+vlog3 "\nresponse:\n";
 while (<$conn>){
     chomp;
     s/\r$//;
+    vlog3 $_;
     if(/ERROR/){
         if(/^ERROR$/){
             $err_msg = "unknown command sent to";
@@ -121,7 +125,12 @@ while (<$conn>){
         quit "CRITICAL", "$err_msg memcached '$host:$port': '$_'";
     }
     last if /END/;
-    /^STAT \w+ [\d\.]+$/ or quit "CRITICAL", "unrecognized line in output: '$_'";
+    next if /^STAT (?:libevent|stat_reset|memcached_version) /;
+    # Couchbase's embedded Memcached non-stats
+    if(not /^STAT \w+ [\d\.]+$/){
+        next if /^STAT ep_\w+\b/;
+        quit "CRITICAL", "unrecognized line in output: '$_'";
+    }
     #vlog3 "processing line: '$_'";
     $line = $_;
     $linecount++;
@@ -134,7 +143,7 @@ while (<$conn>){
         }
     }
 }
-vlog3 "got response" if ($linecount > 0);
+vlog2 "got response" if ($linecount > 0);
 close $conn;
 vlog2 "closed connection\n";
 # Different versions of memcached output different stats unfortunately so this sanity check while good may break stuff
@@ -143,15 +152,20 @@ vlog2 "closed connection\n";
 #    #vlog "$_: $stats{$_}";
 #}
 
-my $msg = "Memcached ";
+$msg = "Memcached ";
 foreach(qw/curr_connections threads curr_items total_items version uptime/){
     defined($stats{$_}) or quit "CRITICAL", "$_ was not found in output from memcached on '$host:$port'";
     $msg .= "$_: " . $stats{$_};
-    $msg .= "(w=$warning/c=$critical)" if /^curr_connections$/;
+    if($_ eq "curr_connections"){
+        check_thresholds($stats{$_}, undef, "current connections");
+        vlog2;
+    } elsif($_ eq "uptime" and isInt($stats{$_})){
+        $msg .= " secs (" . sec2human($stats{$_}) . ")"
+    }
     $msg .= ", ";
 }
 
-$msg =~ s/, $/|/;
+$msg =~ s/, $/ | /;
 my $var;
 my $pnp4nagios_datatype = "";
 foreach(sort keys %stats2){
@@ -189,23 +203,19 @@ my %stats3;
 my $msg2 = "Unknown stats found: ";
 foreach(sort keys %stats){
     unless(defined($stats2{$_})){
-        $status = "WARNING";
+        warning;
         $stats3{$_} = 1;
     }
 }
 if(scalar keys %stats3 > 0){
-    $status = "WARNING";
+    warning;
     foreach(sort keys %stats3){
         $msg2  .= "$_,";
     }
     $msg2 =~ s/,$//;
-    $msg2 .= " (plugin may need updating)";
+    $msg2 .= ". $nagios_plugins_support_msg";
     $msg = "$msg2. $msg";
 }
-if($stats{"curr_connections"} >= $critical){
-    $status = "CRITICAL";
-} elsif($stats{"curr_connections"} >= $warning) {
-    $status = "WARNING";
-}
 
-quit($status, $msg);
+vlog2;
+quit $status, $msg;

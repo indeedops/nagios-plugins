@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2012-04-12 11:29:56 +0100 (Thu, 12 Apr 2012)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -32,8 +32,23 @@ Checks:
 
 I have used this in production for nearly 800 domains across a great variety of over 100 TLDs/second-level domains last I checked, including:
 
-ac, ag, am, asia, asia, at, at, be, biz, biz, ca, cc, cc, ch, cl, cn, co, co.at, co.il, co.in, co.kr, co.nz, co.nz, co.uk, co.uk, com, com, com.au, com.au, com.bo, com.br, com.cn, com.ee, com.hk, com.hk, com.mx, com.mx, com.my, com.pe, com.pl, com.pt, com.sg, com.sg, com.tr, com.tw, com.tw, com.ve, de, dk, dk, eu, fi, fm, fm, fr, gs, hk, hk, hu, idv.tw, ie, in, info, info, io, it, it, jp, jp, kr, lu, me, me.uk, mobi, mobi, ms, mx, mx, my, name, net, net, net.au, net.br, net.cn, net.nz, nf, nl, no, nu, org, org, org.cn, org.nz, org.tw, org.uk, org.uk, pl, ru, se, sg, sg, sh, tc, tel, tel, tl, tm, tv, tv, tv.br, tw, us, us, vg, xxx
+ac, ag, am, asia, asia, at, at, be, biz, biz, ca, cc, cc, ch, cl, cn, co, co.at, co.il, co.in, co.kr, co.nz, co.nz, co.uk, co.uk, com, com, com.au, com.au, com.bo, com.br, com.cn, com.ee, com.hk, com.hk, com.mx, com.mx, com.my, com.pe, com.pl, com.pt, com.sg, com.sg, com.tr, com.tw, com.tw, com.ve, de, dk, dk, eu, fi, fm, fm, fr, gs, guru, hk, hu, idv.tw, ie, in, info, info, io, it, jp, jp, kr, london, lu, me, me.uk, mobi, mobi, ms, mx, mx, my, name, net, net, net.au, net.br, net.cn, net.nz, nf, nl, no, nu, org, org, org.cn, org.nz, org.tw, org.uk, org.uk, pl, ru, se, sg, sg, sh, tc, tel, tel, tl, tm, tv, tv.br, tw, us, us, vg, xxx
+
+DISCLAIMER:
+
+1. TLDs can change/revoke whois info at any time, so this code will need updating should such occasions arise
+2. some TLDs for some small countries don't even have whois servers, this is handled in code where I know of it to state such
+3. I recommend you run the latest version of jwhois that you can get, I've found a scenario where older jwhois on Debian Wheezy didn't return expiry information for google.name compared to the version on CentOS
 ";
+
+# For developing/testing on Mac I've found this has worked:
+#
+# brew install homebrew/boneyard/jwhois
+#
+# Update: this doens't seem to work any more, now gives below error for any domain, even though version is the same as on Linux :-/
+#
+# [Querying whois.verisign-grs.com]
+# [Unable to connect to remote host]
 
 # Whois perl libraries aren't great so calling whois binary and checking manually
 # so we have more control over this, can get sticky but it looks like this is the reason
@@ -44,36 +59,12 @@ ac, ag, am, asia, asia, at, at, be, biz, biz, ca, cc, cc, ch, cl, cn, co, co.at,
 # Not the most beautiful piece of code I ever wrote but still more extensive than anything out
 # there esp thanks to the leveraging of my Nagios lib
 
-# DISCLAIMER: TLDs can change/revoke whois info at any time, so this code will need updating should such occasions arise
-#             some TLDs for some small countries don't even have whois servers, this is handled in code where I know of it to state such
-
 # WARNING: DO NOT EDIT THIS PLUGIN, A SIMPLE CHANGE CAN RADICALLY ALTER THE LOGIC AND DATE PARSING/MANIPULATIONS
 # GIVING A FALSE SENSE OF SECURITY, SAME GOES FOR THE TESTS ACCOMPANYING IT, CHECK WITH HARI SEKHON FIRST
 # THERE IS A LOT OF REGEX. EVEN IF YOU ARE A REGEX MASTER YOU CANNOT PREDICT ALL SIDE EFFECTS
 # YOU MUST RELY ON THE ACCOMPANYING TESTS I HAVE WRITTEN IF YOU CHANGE ANYTHING AT ALL
 
-# So far I've used this with the following TLD registrars
-# - .asia
-# - .biz
-# - .com
-# - .de
-# - .dk
-# - .eu
-# - .fi
-# - .fr
-# - .info
-# - .it
-# - .net
-# - .nl
-# - .no
-# - .org
-# - .se
-# - .tv
-# - .uk
-# Update: I have used this in production for nearly 800 domains across a great variety of over 100 TLDs/second-level domains last I checked, including:
-# ac, ag, am, asia, asia, at, at, be, biz, biz, ca, cc, cc, ch, cl, cn, co, co.at, co.il, co.in, co.kr, co.nz, co.nz, co.uk, co.uk, com, com, com.au, com.au, com.bo, com.br, com.cn, com.ee, com.hk, com.hk, com.mx, com.mx, com.my, com.pe, com.pl, com.pt, com.sg, com.sg, com.tr, com.tw, com.tw, com.ve, de, dk, dk, eu, fi, fm, fm, fr, gs, hk, hk, hu, idv.tw, ie, in, info, info, io, it, it, jp, jp, kr, lu, me, me.uk, mobi, mobi, ms, mx, mx, my, name, net, net, net.au, net.br, net.cn, net.nz, nf, nl, no, nu, org, org, org.cn, org.nz, org.tw, org.uk, org.uk, pl, ru, se, sg, sg, sh, tc, tel, tel, tl, tm, tv, tv, tv.br, tw, us, us, vg, xxx
-
-$VERSION = "0.9.116";
+$VERSION = "0.11.1";
 
 use strict;
 use warnings;
@@ -105,7 +96,7 @@ my %tld_alt_whois = (
     #"vn" => "whois.iana.org"
     );
 
-my @tlds_with_no_expiry      = qw/ac at be ch cl de hu eu fr lu name nl no pe sh tc vg za/;
+my @tlds_with_no_expiry      = qw/at be ch de hu eu lu name nl no pe/;
 my @tlds_with_no_nameservers = qw/ac sh/;
 
 %options = (
@@ -167,8 +158,8 @@ unless($output[0] =~ /^jwhois\s+/){
     quit "UNKNOWN", "wrong whois version detected, please install/specify path to GNU jwhois";
 }
 
-my $cmd = "$whois $domain";
-$cmd    = "$whois -h $whois_server $domain" if $whois_server;
+my $cmd = "$whois -d $domain";
+$cmd    = "$whois -d -h $whois_server $domain" if $whois_server;
 set_timeout($timeout, sub { pkill("$cmd") } );
 
 $status = "OK";
@@ -197,28 +188,74 @@ my %mon = (
 );
 
 my $not_registered_msg = "domain '$domain' not registered!!!";
-my $expiry_not_checked_msg = "EXPIRY NOT CHECKED for domain $domain, ";
+if($domain =~ /^www/){
+    $not_registered_msg .= " Did you accidentally specify the FQDN? Try removing 'www' from the beginning?";
+}
+my $expiry_not_checked_msg = "EXPIRY NOT CHECKED for domain $domain,";
 
 my @dns_servers;
 @{$results{"status"}} = ();
-my @valid_statuses = qw/Active ACTIVO Granted registered ok published Complete Delegated VERIFIED connect HOLD RENEWPERIOD clientDeleteProhibited clientRenewProhibited clientTransferProhibited clientUpdateProhibited CLIENT-RENEW-PROHIBITED CLIENT-XFER-PROHIBITED CLIENT-UPDATE-PROHIBITED CLIENT-DELETE-PROHIBITED/;
+
+# https://www.icann.org/resources/pages/epp-status-codes-2014-06-16-en
+# statuses we don't want to accept:
+#                       inactive
+#                       pendingCreate
+#                       pendingDelete
+#                       pendingRestore
+#                       redemptionPeriod
+#                       serverHold
+#                       serverRenewProhibited
+my @valid_statuses = qw/
+                        Active
+                        ACTIVO
+                        addPeriod
+                        AUTORENEWPERIOD
+                        CLIENT-DELETE-PROHIBITED
+                        CLIENT-RENEW-PROHIBITED
+                        CLIENT-UPDATE-PROHIBITED
+                        CLIENT-XFER-PROHIBITED
+                        clientDeleteProhibited
+                        clientRenewProhibited
+                        clientTransferProhibited
+                        clientUpdateProhibited
+                        Complete
+                        connect
+                        Delegated
+                        Granted
+                        HOLD
+                        ok
+                        pendingRenew
+                        pendingTransfer
+                        pendingUpdate
+                        published
+                        registered
+                        RENEWPERIOD
+                        serverDeleteProhibited
+                        serverTransferProhibited
+                        serverUpdateProhibited
+                        TRANSFERPERIOD
+                        VERIFIED
+                        VerifiedID
+                        /;
+# add valid statuses with spaces in them
 push(@valid_statuses,
     (
         "200 Active",
         "auto-renew grace",
-        "AUTORENEWPERIOD",
         "CLIENT DELETE PROHIBITED",
         "CLIENT RENEW PROHIBITED",
         "CLIENT TRANSFER PROHIBITED",
         "CLIENT UPDATE PROHIBITED",
+        "DELETE PROHIBITED",
         "NOT AVAILABLE",
         "NOT DELEGATED",
         "paid and in zone",
         "Registered until expiry date",
         "SERVER UPDATE PROHIBITED",
+        "Transfer Allowed",
+        "Transfer Locked",
         "TRANSFER PROHIBITED",
-        "TRANSFERPERIOD",
-        "Transfer Locked"
+        "UPDATE PROHIBITED"
     )
 );
 my @not_registered_statuses = qw/free/;
@@ -233,7 +270,13 @@ foreach(@valid_statuses2){
 sub valid_status {
     my $status = shift;
     #vlog2("* checking status: $status");
-    if(grep(lc($_) eq lc($status), @valid_statuses)){
+    if($status =~ /,/){
+        foreach my $status_part (split(",", $status)){
+            if(grep(lc($_) eq lc($status_part), @valid_statuses)){
+                return 1;
+            }
+        }
+    } elsif(grep(lc($_) eq lc($status), @valid_statuses)){
         return 1;
     } else {
         foreach(@valid_statuses2){
@@ -266,35 +309,37 @@ if($tld eq "ar"){
     }
 }
 
+my %domain_mismatches;
 foreach(@output){
     if(/\[.*Unable to connect to remote host.*\]/io or
        /\[.*Name or service not known.*\]/io or
        /(?:daily whois-limit exceeded for client (?:$ip_regex)?|too many requests|Look up quota exceeded|exceeded.+query.+limit|WHOIS LIMIT EXCEEDED)/io or
        /^query_status:\s+[13-9]\d{2}\s+/io or
        /^\s*Invalid input\s*$/io or
-       /^% Quota exceeded/io or
+       /quota exceeded/io or
        /Unable to locate remote host/io or
        /Unable to connect/io or
-       /Can't access/io
+       /Can't access/io or
+       /No Data Found/o
         ){
-        quit "UNKNOWN", strip($_);
+        quit "UNKNOWN", "error while checking domain '$domain': " . strip($_);
     } elsif(/No entries found|NOT FOUND|No match/io   or
             /Status:\s+AVAILABLE/io                   or
             /(?:$domain).+(?<!Not )\b(?:free|available)\b/io or
             /Domain Available.+$domain/io             or
             /The domain has not been registered/io    or
-            /query_status: 220 Available/o
+            /query_status: 220 Available/io
         ){
         quit "CRITICAL", $not_registered_msg;
     # UK Nominet Errors, either cos of violating naming or "Nominet not the registry for" etc
     } elsif(/Error for /io){
         quit "CRITICAL", "Error for domain $domain returned, see full whois output for details";
-    } elsif(/^\s*Domain Expiration Date:\s+\w{3}\s+(\w{3})\s+(\d{1,2})\s+\d{1,2}:\d{1,2}:\d{1,2}\s+\w{3}\s+(\d{4})\s*$/o) {
+    } elsif(/^\s*Domain Expiration Date:\s+\w{3}\s+(\w{3})\s+(\d{1,2})\s+\d{1,2}:\d{1,2}:\d{1,2}\s+\w{3}\s+(\d{4})\s*$/io) {
         ($day, $month, $year) = ($2, $1, $3);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
-    } elsif(/^\s*Expires on\.+:\s+(\d{4})-(\w{3})-(\d{1,2})\.\s*$/o or
-            /^(?:Expiration Date|paid-till)\s*:\s+(\d{4})\. ?(\d{2})\. ?(\d{2})\.?\s*$/o) {
+    } elsif(/^\s*Expires on\b\.*:\s*(\d{4})-([A-Za-z]{3})-(\d{1,2}).?\s*$/io or
+            /^(?:Expiration Date|paid-till)\s*:\s*(\d{4})\. ?(\d{2})\. ?(\d{2})\.?\s*$/io) {
         ($day, $month, $year) = ($3, $2, $1);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
@@ -316,12 +361,12 @@ foreach(@output){
         ($day, $month, $year) = ($3, $2, $1);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
-    } elsif(/^expires:?\s*(\d{4})(\d{2})(\d{2})\s*$/o){
+    } elsif(/^expires:?\s*(\d{4})(\d{2})(\d{2})\s*$/io){
         ($day, $month, $year) = ($3, $2, $1);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
-    } elsif(/^\s*Expires\s*:\s*(\w+)\s+(\d{1,2})\s+(\d{4})\s*\.\s*$/o or
-            /^\s*Expires on\.+:\s*\w{3},\s+(\w{3})\s+(\d{1,2}),\s+(\d{4})\s*$/o){
+    } elsif(/^\s*Expires\s*:\s*(\w+)\s+(\d{1,2})\s+(\d{4})\s*\.\s*$/io or
+            /^\s*Expires on\.+:\s*\w{3},\s+(\w{3})\s+(\d{1,2}),\s+(\d{4})\s*$/io){
         ($day, $month, $year) = ($2, $1, $3);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
@@ -329,25 +374,33 @@ foreach(@output){
         ($day, $month, $year) = ($3, $2, $1);
         $results{"expiry"} = "$day-$month-$year";
         vlog2("Expiry: $results{expiry}");
-    } elsif(/^\s*Expiration Date:\s*(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}:\d{2}[A-Z]?)?\s*$/o or
-            /^\s*Registry Expiry Date:\s*(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?[A-Z]?)?\s*$/o){
+    # GoDaddy registration dates eg. 'Registrar Registration Expiration Date: 2015-09-02T16:50:03Z'
+    } elsif(/\b(?:Expiration|Registry Expiry|Registrar Registration Expiration|Expires On)(?:\s+Date)?.*?(\d{4})-(\d{2})-(\d{2})(?:[^\d]|$)/io){
         ($day, $month, $year) = ($3, $2, $1);
         $results{"expiry"} = "$day-$month-$year";
     } elsif (/^\s*(?:Query:|Domain(?:[ _]?Name)?\s*(?:\(ASCII\))?[.:]+)\s*(.+?)\s*$/io or
              /^(?:[a-z]?\s)?\[Domain Name\]\s+(.+?)\s*$/o or
-             /^Nome de [^\s]+\s*\/\s*Domain Name:\s*($domain_regex)\s*$/io or
-             /^\s*Nombre de Dominio:\s*($domain_regex)\s*$/io or
-             /^Dominio:\s*($domain_regex)/io or
-             /^Domain\s+\"?($domain_regex)\"?/io
+             /^Nome de [^\s]+\s*\/\s*Domain Name:\s*($domain_regex_strict)\s*$/io or
+             /^\s*Nombre de Dominio:\s*($domain_regex_strict)\s*$/io or
+             /^Dominio:\s*($domain_regex_strict)/io or
+             /^Domain\s+\"?($domain_regex_strict)\"?/io or
+             /^ACE:\s($domain_regex_strict)\s/
              ){
+        if($results{"domain"}){
+            unless($results{"domain"} eq $1){
+                $domain_mismatches{$results{"domain"}} = 1;
+                $domain_mismatches{$1} = 1;
+            }
+        }
         $results{"domain"} = $1;
         vlog2("Domain Name: $results{domain}");
-        lc($results{"domain"}) eq lc($results{"domain"}) or quit "CRITICAL", "whois mismatch - returned domain '$results{domain}' instead of '$domain'";
+        # checking domain further down which accounts for EU peculiarity
+        #lc($results{"domain"}) eq lc($domain) or quit "CRITICAL", "whois mismatch - returned domain '$results{domain}' instead of '$domain'";
     } elsif (/(?:Name ?Server|nserver|ns_name_\d{1,2})s?.*?(?:$hostname_regex\s+NS\s+)?($fqdn_regex|$ip_regex)\.?(\s+.+)?\s*$/io or
              /(?:prim|sec)ns\d?fqdn\s*:\s*($fqdn_regex)\s*$/io){
         my $nameserver = $1;
         $nameserver =~ s/\.$//;
-        validate_fqdn($nameserver) or isIP($nameserver) or quit "CRITICAL", "name server '$nameserver' returned by whois lookup is not a valid hostname or ip address!!! Check '$domain' domain name servers are working properly!";
+        isFqdn($nameserver) or isIP($nameserver) or quit "CRITICAL", "name server '$nameserver' returned by whois lookup is not a valid hostname or ip address!!! Check '$domain' domain name servers are working properly!";
         push(@dns_servers, lc($nameserver)) unless(grep(lc($_) eq lc($nameserver), @dns_servers));
     } elsif (/^(?:[a-z]\s)?\s*\[?(?:Domain(?: Name)?|Record)?\s*(?:Creat.*?|Regist[a-z]+|Commencement) ?(?:Date|on)?\]?:?\s*(\d+[-\.\/](?:\d+|\w+)[-\.\/]\d+)/io){
         $results{"created"} = $1;
@@ -377,11 +430,14 @@ foreach(@output){
     } elsif(/^Modified:?\s*(\d{1,2}) (\w{3}) (\d{4}) \d{1,2}:\d{1,2} \w{3}\s*$/io or
             /^Modified:\s*(\d{1,2})\s+([a-z]{3})\s+(\d{4})\s*$/io){
         $results{"updated"} = "$1-$2-$3";
-    } elsif (/(?:status|domaintype):\s*([\w \t-]+)/io or
+    } elsif (/(?:status|domaintype):\s*(\w[\w\s-]+\w)/io or
              /\[Status\]\s+(.+?)\s*$/o or
              /^\s*Estatus del dominio:\s*(.+?)\s*$/){
-        push(@{$results{"status"}}, strip($1));
-    } elsif (/^state:\s*([\w \t,-]+)\s*$/io){
+        my $domain_status = strip($1);
+        $domain_status =~ s/\s+https?$//i;
+        $domain_status =~ s/\s+--.*$//i;
+        push(@{$results{"status"}}, $domain_status);
+    } elsif (/^state:\s*([\w\s,-]+)\s*$/io){
         my @states = split(",", $1);
         foreach(@states){
             push(@{$results{"status"}}, strip($_));
@@ -407,10 +463,13 @@ foreach(@output){
 my $no_nameservers_listed = 0;
 foreach(my $i=0;$i<scalar @output;$i++){
     my $line = $output[$i];
-    if($line =~ /^\s*Domain name:?\s*$/io){
+    if($line =~ /^\s*Domain name:?\s*$/io
+        # for Estonia EE registrar eg. myspace.com.ee
+            or $line =~ /^\s*Domain:\s*$/io
+        ){
         $output[$i+1] or last;
         $line = $output[$i+1] or code_error "hit end of output";
-        if($line =~ /($domain_regex)/o){
+        if($line =~ /($domain_regex_strict)/o){
             $results{"domain"} = $1;
         }
     } elsif($line =~ /^\s*Registrar:?\s*$/io){
@@ -503,9 +562,14 @@ foreach(my $i=0;$i<scalar @output;$i++){
                 $no_nameservers_listed = 1;
                 last;
             } else {
+                # exclusion for EU domains since there isn't 
+                # another idea that works for EU domains but this might match match genuine multiple nameservers eg:
+                # nameserver1 nameserver2 nameserver3 nameserver4 on a line from one of the many registrars so not risking it
+                #next if (scalar split(/\s+/, $line2) > 5);
+                next if ($line2 =~ /\b(?:Please|visit|for|more|info)\b/i);
                 foreach my $nameserver (split(/\s+/, $line2)){
                     next if(lc $nameserver eq "ns");
-                    if(isHostname($nameserver) or isIP($nameserver)){
+                    if(isFqdn($nameserver) or isIP($nameserver)){
                         push(@dns_servers, lc($nameserver)) unless(grep($_ eq lc($nameserver), @dns_servers));
                     }
                 }
@@ -543,7 +607,7 @@ if($results{"registrar"}){
     $results{"registrar"} =~ s/,?\s*(?:LLC|Inc|Ltd|S\.?A\.?S?|(?:Ltd )?R\d+-ASIA)?\.?(?:\s+\((?:[\w-]+|http:\/\/$hostname_regex)\))?\.?\s*$//io;
 } else {
     foreach(@output){
-        if (/^\[Querying\s+(?:http:\/\/)?($domain_regex)(?:$url_path_suffix_regex)?\]$/){
+        if (/^\[Querying\s+(?:http:\/\/)?($domain_regex_strict)(?:$url_path_suffix_regex)?\]$/){
             $results{"registrar"} = $1;
             $results{"registrar"} =~ s/(?:www|whois)\.//o;
         }
@@ -575,12 +639,14 @@ if($results{"registrar"} eq "markmonitor.com" and not defined($results{"expiry"}
 }
 
 my $anti_automation = 0;
-unless($results{"expiry"}){
+if (not $results{"expiry"}){
     if($no_expiry){
         $msg = "${msg}${expiry_not_checked_msg}";
     } elsif(grep($_ eq $tld, @tlds_with_no_expiry)){
         vlog2("Excepting domain $domain from expiry check as we can't find the expiry and it's a .$tld domain");
         $msg = "${msg}${expiry_not_checked_msg}";
+        $msg =~ s/,$//;
+        $msg .= " due to .$tld registrar not supporting it,";
         $no_expiry = 1;
     } elsif($results{"registrar"} =~ /GoDaddy/io){
         $msg = "${msg}GODADDY ${expiry_not_checked_msg}";
@@ -592,6 +658,8 @@ unless($results{"expiry"}){
         $msg = "${msg}whois.ausregistry.net.au ${expiry_not_checked_msg}";
         $no_expiry = 1;
     }
+} elsif($no_expiry){
+    $msg = "${msg}${expiry_not_checked_msg}";
 }
 unless($no_expiry){
     if($results{"expiry"}){
@@ -610,7 +678,10 @@ unless($no_expiry){
         $results{"expiry_epoch"} = timegm(0,0,0,$day,$month,$year);
         vlog2("expiry_epoch epoch: $results{expiry_epoch}");
     } else {
-        quit "UNKNOWN", "couldn't find expiry in output from whois $domain (use -vvv to check output, some european registrars don't supply it in which case you may need to use --no-expiry switch)";
+        if(defined($results{"domain"})){
+            quit "UNKNOWN", "expiry not found in output from whois $domain (use -vvv to check output, some registrars don't supply it in which case you may need to use --no-expiry switch)";
+        }
+        quit "UNKNOWN", "neither domain nor expiry found in output for whois $domain, domain not registered? Use -vvv to check output, registrars output may have changed. $nagios_plugins_support_msg";
     }
     $results{"expiry_epoch"} or quit "UNKNOWN", "couldn't calculate expiry epoch from expiry '$results{expiry}' in output from whois $domain";
 }
@@ -664,7 +735,7 @@ if(@{$results{"status"}}){
 }
 if(@invalid_statuses){
     $msg = "invalid status '". join(",", @invalid_statuses) . "' found! $msg";
-    critical;
+    warning;
 }
 my @not_found;
 if($tld eq "hu"){
@@ -677,17 +748,17 @@ unless($no_nameservers_listed){
         $msg = "No nameservers found. $msg";
     }
 }
-unless($results{"domain"}){
-    if($tld eq "cl"){
-        my $domain_minus_tld = $domain;
-        $domain_minus_tld =~ s/\.[^\.]+$//;
-        foreach(@output){
-            if(/http:\/\/www\.nic\.cl\/cgi-bin\/dom-CL\?q=$domain_minus_tld/o){
-                $results{"domain"} = $domain;
-            }
-        }
-    }
-}
+#unless($results{"domain"}){
+#    if($tld eq "cl"){
+#        my $domain_minus_tld = $domain;
+#        $domain_minus_tld =~ s/\.[^\.]+$//;
+#        foreach(@output){
+#            if(/http:\/\/www\.nic\.cl\/cgi-bin\/dom-CL\?q=$domain_minus_tld/o){
+#                $results{"domain"} = $domain;
+#            }
+#        }
+#    }
+#}
 # Registrant and updated aren't output by all whois servers
 foreach my $result (("expiry", "domain")){
     next if ($no_expiry   and $result eq "expiry");
@@ -698,7 +769,12 @@ foreach my $result (("expiry", "domain")){
 }
 if(@not_found){
     warning;
-    $msg = "Couldn't find " . join("/", sort @not_found) . " in whois output. $msg";
+    my $msg2 = join("/", sort @not_found) . " not found in whois output";
+    if(grep { $_ eq "domain" } @not_found){
+        critical;
+        $msg2 .= " (domain not registered?)";
+    }
+    $msg = "$msg2. $msg";
 }
 
 if($results{"registrant"} and $results{"registrant"} eq ""){
@@ -730,6 +806,10 @@ if($results{"domain"}){
     unless(lc($results{"domain"}) eq lc($domain)){
         warning;
         $msg = "domain mismatch!!! (expected '$domain', got '$results{domain}') $msg";
+    }
+    if(%domain_mismatches){
+        warning;
+        $msg = sprintf("mismatching domain found multiple (%d) times in registrar output: %s - raise a ticket on github for a fix https://github.com/harisekhon/nagios-plugins/issues. %s", scalar keys %domain_mismatches,  join(" vs ", sort keys %domain_mismatches), $msg);
     }
 }
 my @not_found_expected;
@@ -789,6 +869,8 @@ if($verbose){
     $msg .= " (expected: $expected_results{admin_email})" if (grep($_ eq "admin_email", @results_mismatch));
     $msg .= " tech_email:'"  . $results{"tech_email"}  . "'" if $results{"tech_email"};
     $msg .= " (expected: $expected_results{tech_email})" if (grep($_ eq "tech_email", @results_mismatch));
+} else {
+    $msg =~ s/,$//;
 }
 $msg .= $perfdata;
 

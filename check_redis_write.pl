@@ -5,7 +5,7 @@
 #  Date: 2013-11-17 00:22:17 +0000 (Sun, 17 Nov 2013)
 #  Continuation an idea from Q3/Q4 2012, inspired by other similar NoSQL plugins developed a few years earlier
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -21,7 +21,7 @@ Checks:
 5. records the write/read/delete timings to a given precision for reporting and graphing
 6. compares each operation's time taken against the warning/critical thresholds if given
 
-Developed on Redis 2.4.10";
+Tested on Redis 2.4.10, 2.8.19, 3.0.7";
 
 $VERSION = "0.6";
 
@@ -102,8 +102,8 @@ vlog2;
 my $epoch  = time;
 my $value  = random_alnum(20);
 my $key    = "HariSekhon:$progname:$host:$epoch:" . substr($value, 0, 10);
-vlog_options "key",    $key;
-vlog_options "value",  $value;
+vlog_option "key",    $key;
+vlog_option "value",  $value;
 vlog2;
 set_timeout();
 

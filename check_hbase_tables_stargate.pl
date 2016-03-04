@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-28 00:12:10 +0100 (Sun, 28 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -36,7 +36,7 @@ BEGIN {
 use HariSekhonUtils;
 use LWP::Simple '$ua';
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 set_port_default(20550);
 
@@ -66,10 +66,10 @@ foreach $table (@tables){
         $table = isDatabaseTableName($table) || usage "invalid table name $table given";
     }
 }
-vlog_options "tables", "[ " . join(" , ", @tables) . " ]";
+vlog_option "tables", "[ " . join(" , ", @tables) . " ]";
 
 my $url = "http://$host:$port/status/cluster";
-vlog_options "url", $url;
+vlog_option "url", $url;
 
 vlog2;
 set_timeout();

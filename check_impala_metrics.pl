@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-29 19:19:45 +0100 (Mon, 29 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -23,7 +23,7 @@ use HariSekhonUtils;
 use LWP::Simple '$ua';
 use JSON::XS;
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 my $default_port = 25000;
 $port = $default_port;

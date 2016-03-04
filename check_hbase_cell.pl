@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-13 02:30:13 +0100 (Sun, 13 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -27,7 +27,7 @@ HBase Thrift bindings were generated using Thrift 0.9.0 on CDH 4.3 (HBase 0.94.6
 Tested on CDH 4.3.0, 4.5.0
 ";
 
-$VERSION = "0.1";
+$VERSION = "0.2";
 
 use strict;
 use warnings;
@@ -77,13 +77,13 @@ get_options();
 
 $host       = validate_host($host);
 $port       = validate_port($port);
-$table      = validate_database_tablename($table, "allow_qualified");
+$table      = validate_database_tablename($table, "HBase", "allow_qualified");
 $row        = validate_hbase_rowkey($row);
 $column     = validate_hbase_column_qualifier($column);
 if(defined($expected)){
     $expected = validate_regex($expected);
 }
-vlog_options "graph", "true" if $graph;
+vlog_option "graph", "true" if $graph;
 $units     = validate_units($units) if defined($units);
 $precision = validate_int($precision, "precision", 1, 20);
 validate_thresholds(undef, undef, { "simple" => "upper", "positive" => 0, "integer" => 0 } );

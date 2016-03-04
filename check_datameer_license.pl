@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-11-27 20:47:10 +0000 (Wed, 27 Nov 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -32,7 +32,7 @@ use LWP::Simple '$ua';
 use POSIX qw/floor ceil/;
 use Time::Local;
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 my $default_warning  = 31;
 my $default_critical = 15;

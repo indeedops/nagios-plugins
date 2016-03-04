@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2014-04-22 21:40:03 +0100 (Tue, 22 Apr 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -30,7 +30,7 @@ The following additional checks may be applied to directories. Not available for
 
 Tested on IBM BigInsights Console 2.1.2.0";
 
-$VERSION = "0.2";
+$VERSION = "0.2.1";
 
 use strict;
 use warnings;
@@ -86,7 +86,7 @@ validate_ssl();
 
 # ============================================================================ #
 # taken from check_hadoop_hdfs_file_webhdfs.pl
-$path       = validate_filename($path, 0, "path");
+$path       = validate_filename($path, "path");
 $path =~ /^\// or usage "--path must be a full path starting with a slash /";
 
 if($file_checks{"empty"} and $file_checks{"size"}){
@@ -104,7 +104,7 @@ if(defined($file_checks{"type"}) and $file_checks{"type"}){
 #
 foreach(sort keys %file_checks){
     if(defined($file_checks{$_})){
-        vlog_options $_, $file_checks{$_};
+        vlog_option $_, $file_checks{$_};
         next if $_ eq "type";
         if((not defined($file_checks{"type"})) or $file_checks{"type"} ne "DIRECTORY"){
             usage "checks can only be specified for directories since the BigInsights Console API only returns metadata for directories. If a directory is expected then make it explicit with -T DIRECTORY"

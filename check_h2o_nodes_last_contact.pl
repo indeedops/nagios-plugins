@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2014-04-05 22:03:20 +0100 (Sat, 05 Apr 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -16,6 +16,8 @@ Checks the highest last contact lag for all nodes from the given --host node's p
 Since current time is taken from the local machine this program is running on, you must make sure NTP is running across all cluster nodes and this one. Any timestamps in the future will result in a Warning state
 
 Tested on 0xdata H2O 2.2.1.3, 2.4.3.4, 2.6.1.5
+
+TODO: H2O 3.x API has changed, updates required
 ";
 
 $VERSION = "0.1";

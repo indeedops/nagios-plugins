@@ -25,7 +25,7 @@ Checks:
 - duplicate user  names, outputs the user  names with their UIDs
 - duplicate group names, outputs the group names with their GIDs";
 
-$VERSION = "0.1";
+$VERSION = "0.1.1";
 
 use strict;
 use warnings;
@@ -58,7 +58,7 @@ my %uid_counts;
 my %duplicate_users;
 my %duplicate_uids;
 foreach(@output){
-    /^([^:]*+):[^:]*:([^:]*):/ or quit "UNKNOWN", "unrecognized line output from getent passwd: '$_'. $nagios_plugins_support_msg";
+    /^([^:]*):[^:]*:([^:]*):/ or quit "UNKNOWN", "unrecognized line output from getent passwd: '$_'. $nagios_plugins_support_msg";
     $user = $1;
     $uid  = $2;
     defined($user) or quit "CRITICAL", "user name not defined in output line: '$_'";
@@ -97,7 +97,7 @@ my %gid_counts;
 my %duplicate_groups;
 my %duplicate_gids;
 foreach(@output){
-    /^([^:]*+):[^:]*:([^:]*):/ or quit "UNKNOWN", "unrecognized line output from getent group: '$_'. $nagios_plugins_support_msg";
+    /^([^:]*):[^:]*:([^:]*):/ or quit "UNKNOWN", "unrecognized line output from getent group: '$_'. $nagios_plugins_support_msg";
     $group = $1;
     $gid   = $2;
     defined($group) or quit "CRITICAL", "group name not defined in output line: '$_'";

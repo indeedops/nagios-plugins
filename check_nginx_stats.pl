@@ -4,12 +4,14 @@
 #  Author: Hari Sekhon
 #  Date: 2011-05-24 10:38:54 +0100 (Tue, 24 May 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
 
-$DESCRIPTION = "Nagios Plugin to check Nginx stats. Nginx will need to be configured to support this, see documentation at http://wiki.nginx.org/HttpStubStatusModule";
+$DESCRIPTION = "Nagios Plugin to check Nginx stats. Nginx will need to be configured to support this, see documentation at http://wiki.nginx.org/HttpStubStatusModule
+
+Tested on Nginx circa 2010/2011 and more recently version 1.9.11";
 
 $VERSION = "0.4.1";
 
@@ -124,7 +126,7 @@ if($last_tstamp > 0 and $last_tstamp < $now){
 vlog2 "$diff_secs secs since last run\n";
 
 my $ua = LWP::UserAgent->new;
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 validate_resolvable($host);
 my $req = HTTP::Request->new(GET => $url);
 

@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2011-07-26 15:27:47 +0100 (Tue, 26 Jul 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -19,13 +19,14 @@ Checks:
 1. ruok - checks to see if ZooKeeper reports itself as ok
 2. isro - checks to see if ZooKeeper is still writable
 3. mode - checks to see if ZooKeeper is in the proper mode (leader/follower) vs standalone
-4. avg latency - the average latency reported by ZooKeeper is within the thresholds given. Optional
-5. stats - full stats breakdown
-6. also reports ZooKeeper version
+4. number of outstanding requests
+5. avg latency - the average latency reported by ZooKeeper is within the thresholds given. Optional
+6. stats - full stats breakdown
+7. also reports ZooKeeper version
 
-Tested on ZooKeeper 3.4.5. Requires ZooKeeper 3.4 onwards due to isro and mntr 4lw checks";
+Tested on ZooKeeper 3.4.5 and 3.4.6 Apache, Cloudera, Hortonworks and MapR. Requires ZooKeeper 3.4 onwards due to isro and mntr 4lw checks";
 
-$VERSION = "0.6.3";
+$VERSION = "0.8.1";
 
 use strict;
 use warnings;
@@ -36,22 +37,28 @@ BEGIN {
 }
 use HariSekhonUtils;
 use HariSekhon::ZooKeeper;
+use Math::Round;
+use Time::HiRes 'time';
 
 my $standalone;
+my $outstanding_requests = "0,10";
 
 %options = (
-    "H|host=s"       => [ \$host,       "ZooKeeper Host to connect to" ],
-    "P|port=s"       => [ \$zk_port,    "ZooKeeper Client Port to connect to (defaults to $ZK_DEFAULT_PORT)" ],
-    "w|warning=s"    => [ \$warning,    "Warning  threshold or ran:ge (inclusive) for avg latency"  ],
-    "c|critical=s"   => [ \$critical,   "Critical threshold or ran:ge (inclusive) for avg latency" ],
-    "s|standalone"   => [ \$standalone, "OK if mode is standalone (by default expects leader/follower mode as part of a proper ZooKeeper cluster with quorum)" ],
+    "H|host=s"                 => [ \$host,                 "ZooKeeper Host to connect to (\$ZOOKEEPER_HOST, \$HOST)" ],
+    "P|port=s"                 => [ \$port,                 "ZooKeeper Client Port to connect to (defaults to $ZK_DEFAULT_PORT, set to 5181 for MapR, \$ZOOKEEPER_PORT, \$PORT)" ],
+    "o|outstanding-requests=s" => [ \$outstanding_requests, "Number of outstanding requests thresholds (\"[warn,]crit\"), defaults to 0,10 => warning if greater than zero, critical if greater than 10 - should be zero under normal circumstances, otherwise requests are backing up and could cause coordination problems" ],
+    "w|warning=s"              => [ \$warning,              "Warning  threshold or ran:ge (inclusive) for avg latency"  ],
+    "c|critical=s"             => [ \$critical,             "Critical threshold or ran:ge (inclusive) for avg latency" ],
+    "s|standalone"             => [ \$standalone,           "OK if mode is standalone (by default expects leader/follower mode as part of a proper ZooKeeper cluster with quorum)" ],
 );
+splice @usage_order, 7, 0, qw/outstanding-requests standalone warning critical/;
 
 get_options();
 
-$host    = validate_host($host);
-$zk_port = validate_port($zk_port);
-validate_thresholds(undef, undef, { "integer" => 1 });
+$host = validate_host($host);
+$port = validate_port($port);
+validate_thresholds(undef, undef, { 'simple' => 'upper', 'positive' => 1, 'integer' => 1 }, "outstanding requests", $outstanding_requests);
+validate_thresholds(undef, undef, { 'simple' => 'upper', 'positive' => 1, 'integer' => 1 });
 
 set_timeout();
 
@@ -143,7 +150,7 @@ vlog2;
 #        quit "CRITICAL", $line;
 #    }
 #    if($line =~ /ERROR/i){
-#        quit "CRITICAL", "unknown error returned from zookeeper on '$host:$zk_port': '$line'";
+#        quit "CRITICAL", "unknown error returned from zookeeper on '$host:$port': '$line'";
 #    }
 #    $linecount++;
 #    if($line =~ /^Zookeeper version:\s*(.+)?\s*$/i){
@@ -232,7 +239,24 @@ foreach(sort keys %mntr){
     } else {
         quit "UNKNOWN", "failed to determine $_ from mntr";
     }
-    next if (/zk_version/ or /zk_server_state/);
+    next if ($_ eq "zk_version" or $_ eq "zk_server_state");
+    # In the ZooKeeper code base these two stats are set to -1 if ZooKeeper is unable to determine these metrics
+    if($_ eq "zk_open_file_descriptor_count" or $_ eq "zk_max_file_descriptor_count"){
+        if($mntr{$_} == -1){
+            $mntr{$_} = "N/A";
+            next;
+        }
+    } elsif($_ eq "zk_min_latency"){
+        # this can appear, handle with warning below
+        #$mntr{"zk_min_latency"} = -681;
+        if($mntr{$_} < 0){
+            warning;
+            $msg .= "min latency < 0! (run 'srst' command on ZooKeeper to reset stats to fix). ";
+            # invalid reset to N/A
+            $mntr{$_} = "N/A";
+            next;
+        }
+    }
     $mntr{$_} =~ /^\d+$/ or quit "UNKNOWN", "invalid value found for mntr $_ '$mntr{$_}'";
 }
 vlog2;
@@ -243,17 +267,19 @@ vlog2;
 #vlog2 "closed connection\n";
 
 foreach(sort keys %mntr){
-    defined($mntr{$_}) or quit "CRITICAL", "$_ was not found in output from zookeeper on '$host:$zk_port'";
+    defined($mntr{$_}) or quit "CRITICAL", "$_ was not found in output from zookeeper on '$host:$port'";
 }
 
 ###############################
 # TODO: abstract out this store state block to my personal library since I use it in a few pieces of code
 my $tmpfh;
-my $statefile = "/tmp/$progname.$host.$zk_port.state";
+my $statefile = "/tmp/$progname.$host.$port.state";
 vlog2 "opening state file '$statefile'\n";
+my $new_statefile = 0;
 if(-f $statefile){
     open $tmpfh, "+<$statefile" or quit "UNKNOWN", "Error: failed to open state file '$statefile': $!";
 } else {
+    $new_statefile = 1;
     open $tmpfh, "+>$statefile" or quit "UNKNOWN", "Error: failed to create state file '$statefile': $!";
 }
 flock($tmpfh, LOCK_EX | LOCK_NB) or quit "UNKNOWN", "Failed to aquire a lock on state file '$statefile', another instance of this plugin was running?";
@@ -263,7 +289,7 @@ my $last_timestamp;
 my %last_stats;
 if($last_line){
     vlog2 "last line of state file: <$last_line>\n";
-    if($last_line =~ /^(\d+)\s+
+    if($last_line =~ /^(\d+(?:\.\d+)?)\s+
                        (\d+)\s+
                        (\d+)\s+
                        (\d+)\s*$/x){
@@ -272,22 +298,29 @@ if($last_line){
         $last_stats{"zk_packets_received"}      = $3,
         $last_stats{"zk_packets_sent"}          = $4,
     } else {
-        print "state file contents didn't match expected format\n\n";
+        vlog2 "state file contents didn't match expected format\n";
     }
 } else {
-    vlog2 "no state file contents found\n\n";
+    vlog2 "no state file contents found\n";
 }
 my $missing_stats = 0;
-foreach(keys %last_stats){
-    unless($last_stats{$_} =~ /^\d+$/){
-        print "'$_' stat was not found in state file\n";
+unless(defined($last_timestamp)){
+    vlog2 "last timestamp was not found in state file (" . ($last_line ? "invalid format" : "empty contents") . ")";
+    $missing_stats = 1;
+}
+foreach(qw/zk_outstanding_requests zk_packets_received zk_packets_sent/){
+    unless(defined($last_stats{$_}) and $last_stats{$_} =~ /^\d+$/){
+        vlog2 "'$_' stat was not found in state file (" . ($last_line ? "invalid format" : "empty contents") . ")";
         $missing_stats = 1;
-        last;
     }
 }
-if(not $last_timestamp or $missing_stats){
-        print "missing or incorrect stats in state file, resetting to current values\n\n";
-        $last_timestamp = $now;
+if($missing_stats){
+    if($new_statefile){
+        vlog2 "no state file existed, this run will populate initial state - results will be available from next run\n";
+    } else {
+        vlog2 "missing or incorrect stats in state file, resetting to current values\n";
+    }
+    $last_timestamp = $now;
 }
 seek($tmpfh, 0, 0)  or quit "UNKNOWN", "Error: seek failed: $!\n";
 truncate($tmpfh, 0) or quit "UNKNOWN", "Error: failed to truncate '$statefile': $!";
@@ -305,30 +338,30 @@ close $tmpfh;
 
 my $secs = $now - $last_timestamp;
 
+my %stats_diff;
 if($secs < 0){
     quit "UNKNOWN", "Last timestamp was in the future! Resetting...";
-} elsif ($secs == 0){
-    quit "UNKNOWN", "0 seconds since last run, aborting...";
-}
-
-my %stats_diff;
-foreach(@stats){
-    #next if ($_ eq "Node count");
-    $stats_diff{$_} = int((($mntr{$_} - $last_stats{$_} ) / $secs) + 0.5);
-    if ($stats_diff{$_} < 0) {
-        quit "UNKNOWN", "recorded stat $_ is higher than current stat, resetting stats";
+#} elsif ($secs == 0){
+#    quit "UNKNOWN", "0 seconds since last run, aborting...";
+} elsif ($secs >= 1){
+    foreach(@stats){
+        #next if ($_ eq "Node count");
+        $stats_diff{$_} = round(($mntr{$_} - $last_stats{$_} ) / $secs);
+        if ($stats_diff{$_} < 0) {
+            quit "UNKNOWN", "recorded stat $_ is higher than current stat, resetting stats";
+        }
     }
-}
 
-if($verbose >= 2){
-    print "epoch now:                           $now\n";
-    print "last run epoch:                      $last_timestamp\n";
-    print "secs since last check:               $secs\n\n";
-    printf "%-30s %-20s %-20s %-20s\n", "Stat", "Current", "Last", "Diff/sec";
-    foreach(sort keys %stats_diff){
-        printf "%-30s %-20s %-20s %-20s\n", $_, $mntr{$_}, $last_stats{$_}, $stats_diff{$_};
+    if($verbose >= 2){
+        print "epoch now:                           $now\n";
+        print "last run epoch:                      $last_timestamp\n";
+        print "secs since last check:               $secs\n\n";
+        printf "%-30s %-20s %-20s %-20s\n", "Stat", "Current", "Last", "Diff/sec";
+        foreach(sort keys %stats_diff){
+            printf "%-30s %-20s %-20s %-20s\n", $_, $mntr{$_}, $last_stats{$_}, $stats_diff{$_};
+        }
+        print "\n\n";
     }
-    print "\n\n";
 }
 
 #sub compare_zooresults {
@@ -356,17 +389,32 @@ if($mntr{"zk_server_state"} eq "standalone"){
 $msg .= "Mode $mntr{zk_server_state}, ";
 $msg .= "avg latency $mntr{zk_avg_latency}";
 check_thresholds($mntr{"zk_avg_latency"});
+$msg .= ", outstanding requests $mntr{zk_outstanding_requests}";
+check_thresholds($mntr{"zk_outstanding_requests"}, undef, "outstanding requests");
 #$msg .= "Latency min/avg/max $mntr{zk_min_latency}/$mntr{zk_avg_latency}/$mntr{zk_max_latency}, ";
 $msg .= ", version $mntr{zk_version}";
-$msg .= " | ";
-foreach(sort keys %stats_diff){
-    $msg .= "'$_/sec'=$stats_diff{$_} ";
-}
-foreach(sort keys %mntr){
-    next if ($_ eq "zk_version" or $_ eq "zk_server_state");
-    $msg .= "$_=$mntr{$_} ";
-}
-foreach(sort keys %wchs){
-    $msg .= "wchs_$_=$wchs{$_} ";
+if($secs >= 1){
+    $msg .= " |";
+    foreach(sort keys %stats_diff){
+        $msg .= " '$_/sec'=$stats_diff{$_}";
+    }
+    foreach(sort keys %mntr){
+        next if ($_ eq "zk_version" or $_ eq "zk_server_state");
+        $msg .= " $_=$mntr{$_}";
+        msg_perf_thresholds(undef, undef, "outstanding requests") if $_ eq "zk_outstanding_requests";
+    }
+    foreach(sort keys %wchs){
+        $msg .= " wchs_$_=$wchs{$_}";
+    }
+} else {
+    if($new_statefile){
+        $msg .= " (state file wasn't found, stats will be available from next run)";
+    } elsif($missing_stats){
+        $msg .= " (missing or incorrect state file stats, should have been reset now and available from next run)";
+    } elsif(not $secs >= 1 and not $missing_stats){
+        $msg .= " (less than 1 sec since last run, won't output stats on this run since they wouldn't be an accurate delta)";
+    } else {
+        $msg .= " (stats not available, will attempt to re-set state this run to return correct stats on next run, if that doesn't fix it: $nagios_plugins_support_msg)";
+    }
 }
 quit $status, $msg;

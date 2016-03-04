@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-07-21 03:06:42 +0100 (Sun, 21 Jul 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -18,7 +18,9 @@ Checks:
 3. checks key's returned value against warning/critical range thresholds (optional)
    raises warning/critical if the value is outside thresholds or not a floating point number
 4. outputs the read timing to a given precision for reporting and graphing
-5. optionally outputs the key's value for graphing purposes";
+5. optionally outputs the key's value for graphing purposes
+
+Tested on Riak 1.x, 2.0.0, 2.1.1";
 
 $VERSION = "0.7.1";
 
@@ -72,7 +74,7 @@ $bucket    = validate_alnum($bucket, "bucket");
 if(defined($expected)){
     $expected = validate_regex($expected);
 }
-vlog_options "graph", "true" if $graph;
+vlog_option "graph", "true" if $graph;
 if(defined($units)){
     $units = validate_units($units);
 }
@@ -86,7 +88,7 @@ $ip        = validate_resolvable($host);
 
 my $node   = "riak node '$host:$port'";
 my $url    = "http://$ip:$port/riak/$bucket/$key";
-vlog_options "url",    $url;
+vlog_option "url",    $url;
 my $bucket_key = "key '$key' bucket '$bucket'";
 
 my $http_timeout = sprintf("%.2f", $timeout - 0.5);

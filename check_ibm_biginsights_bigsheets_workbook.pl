@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2014-05-15 23:13:05 +0100 (Thu, 15 May 2014)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -53,7 +53,7 @@ unless($list_workbooks){
 #$workbook = $1;
 # switched to uri escape but not doing it here, as we want to preserve the name for the final output
 #$workbook = uri_escape($workbook);
-    vlog_options "workbook", $workbook;
+    vlog_option "workbook", $workbook;
 }
 validate_ssl();
 

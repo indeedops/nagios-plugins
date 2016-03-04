@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-02-09 15:44:43 +0000 (Sat, 09 Feb 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -20,10 +20,12 @@ Inspired by check_mysql_config.pl (also part of the Advanced Nagios Plugins Coll
 
 Requires ZooKeeper 3.3.0 onwards.
 
+Tested on ZooKeeper 3.x, 3.4.5 and 3.4.6 on Apache, Cloudera, Hortonworks and MapR.
+
 BUGS: there are bugs in ZooKeeper's live running config where it doesn't report all the configuration variables from the config file. I checked this with my colleague Patrick Hunt @ Cloudera who reviewed those additions. If you get a warning about missing config not found on running server then you can use the -m switch to ignore it but please also raise a ticket to create an exception for that variable at https://github.com/harisekhon/nagios-plugins/issues/new
 ";
 
-$VERSION = "0.2";
+$VERSION = "0.2.1";
 
 use strict;
 use warnings;
@@ -46,8 +48,15 @@ my @config_file_only = qw(
                              server\.\d+
                        );
 
+# defaults appear when nothing in config file
+my @running_only = qw(
+                            dataLogDir
+                            maxClientCnxns
+                            maxSessionTimeout
+                            minSessionTimeout
+);
+
 $host = "localhost";
-$port = $ZK_DEFAULT_PORT;
 
 my $ZK_DEFAULT_CONFIG = "/etc/zookeeper/conf/zoo.cfg";
 my $conf              = $ZK_DEFAULT_CONFIG;
@@ -55,11 +64,11 @@ my $no_warn_extra     = 0;
 my $no_warn_missing   = 0;
 
 %options = (
-    "H|host=s"          => [ \$host,             "Host to connect to (defaults: localhost)" ],
-    "P|port=s"          => [ \$port,             "Port to connect to (defaults: $ZK_DEFAULT_PORT)" ],
+    "H|host=s"          => [ \$host,             "Host to connect to (defaults: localhost, \$ZOOKEEPER_HOST, \$HOST)" ],
+    "P|port=s"          => [ \$port,             "Port to connect to (defaults: $ZK_DEFAULT_PORT, set to 5181 for MapR, \$ZOOKEEPER_PORT, \$PORT)" ],
     "C|config=s"        => [ \$conf,             "ZooKeeper config file (defaults to $ZK_DEFAULT_CONFIG)" ],
     "e|no-warn-extra"   => [ \$no_warn_extra,    "Don't warn on extra config detected on ZooKeeper server that isn't specified in config file (serverId is omitted either way)" ],
-    "m|no-warn-missing" => [ \$no_warn_missing,  "Don't warn on missing config detected on ZooKeeper server that was expected from config file (see Bug note in --help description header" ],
+    "m|no-warn-missing" => [ \$no_warn_missing,  "Don't warn on missing config detected on ZooKeeper server that was expected from config file (see Bug note in --help description header)" ],
 );
 
 @usage_order = qw/host port config no-warn-extra/;
@@ -67,7 +76,7 @@ get_options();
 
 $host       = validate_host($host);
 $port       = validate_port($port);
-$conf       = validate_file($conf, 0, "zookeeper config");
+$conf       = validate_file($conf, "zookeeper config");
 
 vlog2;
 set_timeout();
@@ -98,6 +107,7 @@ vlog3;
 
 $status = "OK";
 
+vlog2;
 vlog2 "getting running zookeeper config from '$host:$port'";
 vlog3;
 zoo_cmd "conf", $timeout - 1;
@@ -117,7 +127,7 @@ while(<$zk_conn>){
     next if $key =~ /^serverId$/;
     $running_config{$key} = $value;
 }
-vlog3;
+vlog2;
 
 my @missing_config;
 my @mismatched_config;
@@ -125,7 +135,7 @@ my @extra_config;
 foreach my $key (sort keys %config){
     unless(defined($running_config{$key})){
         if(grep { $key =~ /^$_$/ } @config_file_only){
-            vlog3 "skipping: $key (config file only due to bug)";
+            vlog2 "config only, but exempted due to ZK bug: $key";
             next;
         } else {
             push(@missing_config, $key);
@@ -136,10 +146,15 @@ foreach my $key (sort keys %config){
         push(@mismatched_config, $key);
     }
 }
+vlog2;
 
-foreach(sort keys %running_config){
-    unless(defined($config{$_})){
-        push(@extra_config, $_);
+foreach my $key (sort keys %running_config){
+    unless(defined($config{$key})){
+        if(grep { $_ eq $key } @running_only){
+            vlog2 "running only, but exempted: $key";
+            next;
+        }
+        push(@extra_config, $key);
     }
 }
 
@@ -173,4 +188,5 @@ if((!$no_warn_extra) and @extra_config){
 $msg = sprintf("%d config values tested from config file '$conf', %s", scalar keys %config, $msg);
 $msg =~ s/, $//;
 
+vlog2;
 quit $status, $msg;

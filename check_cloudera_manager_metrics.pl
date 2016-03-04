@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-06-29 23:42:18 +0100 (Sat, 29 Jun 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -64,7 +64,7 @@ $password   = validate_password($password);
 validate_cm_cluster_options();
 
 if($all_metrics){
-    vlog_options "metrics", "ALL";
+    vlog_option "metrics", "ALL";
 } elsif(listing_cm_components()){
 } else {
     defined($metrics) or usage "no metrics specified";
@@ -74,8 +74,8 @@ if($all_metrics){
         push(@metrics, $1);
     }
     @metrics or usage "no valid metrics given";
-    @metrics = sort @metrics;
-    vlog_options "metrics", "[ " . join(" ", @metrics) . " ]"; 
+    @metrics = uniq_array @metrics;
+    vlog_option "metrics", "[ " . join(" ", @metrics) . " ]"; 
 }
 
 validate_thresholds();

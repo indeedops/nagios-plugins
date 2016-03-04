@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-26 20:05:04 +0100 (Sat, 26 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #  
@@ -13,9 +13,11 @@ $DESCRIPTION = "Simple Nagios Plugin to check 'riak-admin diag' for cluster heal
 
 Raises Critical or Warning if any such diagnostics are found, outputs the number of critical, warning and notice diagnostics
 
-Designed to be run on each Riak node via NRPE";
+Designed to be run on each Riak node via NRPE
 
-$VERSION = "0.1";
+Tested on Riak 1.x, 2.0.0, 2.1.1";
+
+$VERSION = "0.2";
 
 use strict;
 use warnings;
@@ -24,11 +26,7 @@ BEGIN {
     use lib dirname(__FILE__) . "/lib";
 }
 use HariSekhonUtils;
-
-# This is the default install path for riak-admin from packages
-$ENV{"PATH"} .= ":/usr/sbin";
-
-my $path = "";
+use HariSekhon::Riak;
 
 my $cmd = "riak-admin diag";
 
@@ -38,24 +36,19 @@ foreach(@diags){
     $diags{$_} = 0;
 }
 
+my $ignore_warnings;
 
 %options = (
-    "riak-admin-path=s"  => [ \$path, "Path to directory containing riak-admin command if differing from the default /usr/sbin" ],
+    %riak_admin_path_option,
+    "ignore-warnings"   =>  [ \$ignore_warnings, "Ignore warnings and return OK, only raise alert on critical issues" ],
 );
+@usage_order = qw/riak-admin-path ignore-warnings/;
 
 get_options();
 
-if($path){
-    if(grep {$_ eq $path } split(":", $ENV{"PATH"})){
-        usage "$path already in \$PATH ($ENV{PATH})";
-    }
-    $path = validate_directory($path, undef, "riak-admin PATH", "no vlog");
-    $ENV{"PATH"} = "$path:$ENV{PATH}";
-    vlog2 "\$PATH for riak-admin:",   $ENV{"PATH"};
-    vlog2;
-}
-
 set_timeout();
+
+get_riak_admin_path();
 
 $status = "OK";
 
@@ -68,7 +61,7 @@ foreach(@output){
         if(/^\s*\[$status\]\s*/){
             $diags{$status}++;
             critical if $status eq "critical";
-            warning  if $status eq "warning";
+            warning  if $status eq "warning" and not $ignore_warnings;
             next;
         }
     }

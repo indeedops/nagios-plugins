@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-10-13 02:30:13 +0100 (Sun, 13 Oct 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -31,7 +31,7 @@ since this is all the Stargate server gives us for a response.
 Another option is to use check_hbase_cell.pl / check_hbase_cell_thrift.pl which uses the Thrift API and has better error reporting
 ";
 
-$VERSION = "0.2";
+$VERSION = "0.3";
 
 use strict;
 use warnings;
@@ -48,7 +48,7 @@ use Time::HiRes 'time';
 use URI::Escape;
 use XML::Simple;
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
 
 set_port_default(20550);
 
@@ -82,13 +82,13 @@ get_options();
 $host       = validate_host($host);
 $host       = validate_resolvable($host);
 $port       = validate_port($port);
-$table      = validate_database_tablename($table, "allow_qualified");
+$table      = validate_database_tablename($table, "HBase", "allow_qualified");
 $row        = validate_hbase_rowkey($row);
 $column     = validate_hbase_column_qualifier($column);
 if(defined($expected)){
     $expected = validate_regex($expected);
 }
-vlog_options "graph", "true" if $graph;
+vlog_option "graph", "true" if $graph;
 $units     = validate_units($units) if defined($units);
 $precision = validate_int($precision, "precision", 1, 20);
 validate_thresholds(undef, undef, { "simple" => "upper", "positive" => 0, "integer" => 0 } );
@@ -96,7 +96,7 @@ validate_thresholds(undef, undef, { "simple" => "upper", "positive" => 0, "integ
 my $cell_info = "table '$table' row '$row' column '$column'";
 
 my $url = "http://$host:$port/" . uri_escape($table) . "/" . uri_escape($row) . "/" . uri_escape($column) . "?v=1";
-vlog_options "url", $url;
+vlog_option "url", $url;
 
 vlog2;
 set_timeout();

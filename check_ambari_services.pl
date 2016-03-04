@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2013-12-02 20:31:30 +0000 (Mon, 02 Dec 2013)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -18,10 +18,11 @@ or
 - a given service's state
 
 - optionally suppresses alerts in maintenance mode if using the switch --maintenance-ok
+- reports but does not raise critical for components which do not have running states such as HCatalog, Kerberos, Pig, Slider, Sqoop, Tez. You can extend this list at the top of the code (in which case please submit a ticket for the rest of us to get the update too)
 
-Tested on Ambari 1.4.4 / 1.6.1 on Hortonworks HDP 2.0 and 2.1";
+Tested on Ambari 1.4.4 / 1.6.1 / 1.7.0 / 2.0.0 on Hortonworks HDP 2.0, 2.1, 2.2";
 
-$VERSION = "0.6.1";
+$VERSION = "0.7";
 
 use strict;
 use warnings;
@@ -32,7 +33,24 @@ BEGIN {
 use HariSekhonUtils;
 use HariSekhon::Ambari;
 
-$ua->agent("Hari Sekhon $progname $main::VERSION");
+$ua->agent("Hari Sekhon $progname version $main::VERSION");
+
+# Services without running components to exclude from raising critical (still output though) i
+#
+# I've moved this to the top for you users to easily add to as Ambari keeps adding components, if you just add it to this list below it won't raise critical
+#
+# Please raise a github ticket or even better submit a patch via a github pull request if you add to this list:
+#
+# https://github.com/harisekhon/nagios-plugins/issues
+#
+my @services_to_not_alert_on = qw(
+                                    HCatalog
+                                    Kerberos
+                                    Pig
+                                    Slider
+                                    Sqoop
+                                    Tez
+                                 );
 
 my $service_state       = 0;
 my $all_service_states  = 0;
@@ -63,7 +81,7 @@ set_timeout();
 
 $status = "OK";
 
-$url_prefix = "http://$host:$port$api";
+$url_prefix = "$protocol://$host:$port$api";
 
 list_ambari_components();
 cluster_required();
@@ -82,8 +100,7 @@ sub get_service_state($){
         # ok
         $service_state = lc $service_state;
     } elsif($service_state eq "INSTALLED"){
-        # This depends on the capitalization from hadoop_service_name
-        if(grep { $service_name eq $_ } qw/HCatalog Pig Sqoop Tez/){
+        if(grep { lc($service_name) eq lc($_) } @services_to_not_alert_on){
             #ok
             $service_state = lc $service_state;
         } else {
@@ -99,17 +116,20 @@ sub get_service_state($){
     } else {
         unknown;
     }
-    $msg .= "$service_name state=$service_state";
+    $msg .= "$service_name=$service_state";
     if($verbose){
+        $maintenance_state = lc $maintenance_state if $maintenance_state eq "OFF";
         $msg .= " (maintenance=$maintenance_state)";
     }
     return $msg;
 }
 
+$msg .= "Ambari service";
 if($service){
     $json = curl_ambari "$url_prefix/clusters/$cluster/services/$service?fields=ServiceInfo/state,ServiceInfo/maintenance_state";
-    $msg .= "service " . get_service_state($json);
+    $msg .= ": " . get_service_state($json);
 } else {
+    $msg .= "s: ";
     $json = curl_ambari "$url_prefix/clusters/$cluster/services?fields=ServiceInfo/state,ServiceInfo/maintenance_state";
     my @items = get_field_array("items");
     foreach(@items){

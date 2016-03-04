@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2010-08-11 17:12:01 +0000 (Wed, 11 Aug 2010)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -18,9 +18,10 @@ Checks:
    2a. Root CA certificate is trusted
    2b. Any intermediate certificates are present, especially important for Mobile devices
 3. Domain name on certificate (optional)
-4. Subject Alternative Names supported by certificate (optional)";
+4. Subject Alternative Names supported by certificate (optional)
+5. SNI - Server Name Identification - supply hostname identifier for servers that contain multiple certificates to tell the server which SSL certificate to use (optional)";
 
-$VERSION = "0.9.9";
+$VERSION = "0.9.12";
 
 use warnings;
 use strict;
@@ -42,9 +43,11 @@ $warning             = $default_warning;
 my $CApath;
 my $cmd;
 my $domain;
+my $sni_hostname;
 my $end_date;
 my $expected_domain;
 my $no_validate;
+my $cert_domain_invalid;
 # Worked on OpenSSL 0.98.x on RHEL5 and Mac OS X 10.6-10.9
 #my $openssl_output_for_shell_regex = '[\w\s_:=@\*,\/\.\(\)\n+-]+';
 # OpenSSL 1.0.x on RHEL6 outputs session tickets and prints hex which can include single quotes, and quotemeta breaks certificate interpretation so not using this now
@@ -58,20 +61,23 @@ my @output;
 %options = (
     "H|host=s"                      => [ \$host,                "SSL host to check" ],
     "P|port=s"                      => [ \$port,                "SSL port to check (defaults to port 443)" ],
-    "d|domain=s"                    => [ \$expected_domain,     "Expected domain of the certificate" ],
-    "s|subject-alternative-names=s" => [ \$subject_alt_names,   "Additional FQDNs to require on the certificate" ],
+    "d|domain=s"                    => [ \$expected_domain,     "Expected domain/FQDN registered to the certificate" ],
+    "s|subject-alternative-names=s" => [ \$subject_alt_names,   "Additional FQDNs to require on the certificate (optional)" ],
+    "S|SNI-hostname=s"              => [ \$sni_hostname,        "SNI hostname to tell a server with multiple certificates which one to use (eg. www.domain2.com, optional)" ],
     "w|warning=s"                   => [ \$warning,             "The warning threshold in days before expiry (defaults to $default_warning)" ],
     "c|critical=s"                  => [ \$critical,            "The critical threshold in days before expiry (defaults to $default_critical)" ],
     "C|CApath=s"                    => [ \$CApath,              "Path to ssl root certs dir (will attempt to determine from openssl binary if not supplied)" ],
-    "N|no-validate"                 => [ \$no_validate,         "Do not validate the SSL certificate chain" ]
+    "N|no-validate"                 => [ \$no_validate,         "Do not validate the SSL certificate chain" ],
+    "cert-domain-invalid"	    => [ \$cert_domain_invalid, "Do not check that the domain on the returned certicate is valid according to domain naming rules. This was added for Platfora which had 'localhost' as the domain name. An alternative is to add 'localhost' to lib/custom_tlds.txt" ]
 );
-@usage_order = qw/host port domain subject-alternative-names warning critical no-validate CApath/;
+@usage_order = qw/host port domain subject-alternative-names SNI-hostname warning critical CApath no-validate cert-domain-invalid/;
 
 get_options();
 
 $host   = validate_host($host);
 $port   = validate_port($port);
-$CApath = validate_dir($CApath, 0, "CA path") if defined($CApath);
+$CApath = validate_dir($CApath, "CA path") if defined($CApath);
+$sni_hostname = validate_hostname($sni_hostname, "SNI") if $sni_hostname;
 validate_thresholds(1, 1, { "simple" => "lower", "integer" => 0, "positive" => 1 } );
 
 if($expected_domain){
@@ -82,6 +88,7 @@ if($expected_domain){
         $expected_domain = validate_domain($expected_domain);
     }
 }
+
 if($subject_alt_names){
     @subject_alt_names = split(",", $subject_alt_names);
     foreach(@subject_alt_names){
@@ -108,7 +115,7 @@ unless(defined($CApath)){
     unless(defined($CApath)){
         usage "CApath to root certs was not specified and could not be found from openssl binary";
     }
-    $CApath = validate_dir($CApath, 0, "CA path");
+    $CApath = validate_dir($CApath, "CA path");
 }
 
 vlog2;
@@ -116,7 +123,9 @@ vlog2;
 $status = "OK";
 
 vlog2 "* checking validity of cert (chain of trust)";
-$cmd = "echo | $openssl s_client -connect $host:$port -CApath $CApath 2>&1";
+$cmd = "echo | $openssl s_client -connect $host:$port -CApath $CApath";
+$cmd .= " -servername $sni_hostname" if $sni_hostname;
+$cmd .= " 2>&1";
 
 @output = cmd($cmd);
 
@@ -158,6 +167,7 @@ vlog2 "* checking domain and expiry on cert";
 #$cmd = "echo '$output' | $openssl x509 -noout -text 2>&1";
 
 # Avoiding the IPC stuff as blocking is a problem, using extra openssl fetch, not ideal but a better fix than the alternatives
+# Could write this to a temporary file to avoid 1 round-trip but would need to be extremely robust and would break on things like /tmp filling up, this is a better trade off as is
 $cmd .= " | $openssl x509 -noout -text 2>&1";
 @output = cmd($cmd);
 
@@ -176,7 +186,8 @@ foreach (@output){
     }
 }
 
-sub validate_cert_domain ($) {
+sub is_cert_domain ($) {
+    return 1 if $cert_domain_invalid;
     my $domain = shift;
     if($domain =~ /^\*\./){
         $domain =~ s/^\*\.//;
@@ -188,7 +199,7 @@ defined($domain)   or quit "CRITICAL", "failed to determine certificate domain n
 defined($end_date) or quit "CRITICAL", "failed to determine certificate expiry date";
 vlog2 "Domain: $domain";
 vlog2 "Certificate Expires: $end_date\n";
-validate_cert_domain($domain) or quit "UNKNOWN", "unrecognized domain certficate returned. $nagios_plugins_support_msg";
+is_cert_domain($domain) or quit "UNKNOWN", "invalid domain '$domain' return for certficate. If this is an internal domain not using an official IANA TLD then you can either add the TLD to lib/custom_tlds.txt to pass this validation, or use --cert-domain-invalid to skip this check entirely. $nagios_plugins_support_msg";
 
 my ($month, $day, $time, $year, $tz) = split(/\s+/, $end_date);
 my ($hour, $min, $sec)               = split(/\:/, $time);

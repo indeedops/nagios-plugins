@@ -4,7 +4,7 @@
 #  Author: Hari Sekhon
 #  Date: 2011-05-28 22:23:05 +0000 (Sat, 28 May 2011)
 #
-#  http://github.com/harisekhon
+#  https://github.com/harisekhon/nagios-plugins
 #
 #  License: see accompanying LICENSE file
 #
@@ -18,7 +18,10 @@ Checks:
 3. checks the returned value is identical to that written
 4. deletes the unique generated key, checks deleted occurred successfully
 5. records the read/write/delete timings and total time (including tcp connection and close) to a given precision
-6. compares timing of each read/write/delete operation against warning/critical thresholds if given";
+6. compares timing of each read/write/delete operation against warning/critical thresholds if given
+
+Tested on Memcached from around 2010/2011, plus 1.4.4, 1.4.25
+";
 
 $VERSION = "0.10.0";
 
@@ -94,8 +97,8 @@ my $epoch  = time;
 # there cannot be any space in the memcached key
 my $value  = random_alnum(20);
 my $key    = "nagios:HariSekhon:$progname:$epoch:" . substr($value, 0, 10);
-vlog_options "key",   $key;
-vlog_options "value", $value;
+vlog_option "key",   $key;
+vlog_option "value", $value;
 my $flags  = 0;
 my $bytes  = length($value);
 vlog2;
